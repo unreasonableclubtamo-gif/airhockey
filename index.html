@@ -1,615 +1,2049 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-  <title>スマホ対戦エアホッケー</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Realtime Air Hockey - オンライン対戦エアホッケー</title>
+    <meta name="description" content="スマホとPCでリアルタイム対戦ができるエアホッケーゲーム。HTML5 Canvas、Firebase Realtime Database、QRコード共有、AI練習モード、PWA対応のシングルファイルWebアプリ。" />
+    <meta property="og:title" content="Realtime Air Hockey - オンライン対戦エアホッケー" />
+    <meta property="og:description" content="スマホとPCでリアルタイム対戦ができるエアホッケーゲーム。HTML5 Canvas、Firebase Realtime Database、QRコード共有、AI練習モード、PWA対応のシングルファイルWebアプリ。" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#070a12" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AirHockey" />
 
-  <!-- PWA（スマホアプリ化）用メタ設定 -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="エアホッケー">
-  <meta name="theme-color" content="#0f172a">
-  <!-- アプリ用のアイコン（エアホッケー風） -->
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5260/5260498.png">
-  <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/5260/5260498.png">
+    <!-- Firebase Realtime Database (CDN compat libraries for simple single-file execution) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase JS SDK (v8: CDN軽量版) -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <!-- QRCode.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <style>
-    body {
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      overflow: hidden;
-    }
-  </style>
-</head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between items-center p-3 font-sans">
+    <!-- QRCode.js (CDN for Host room QR code generation) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <!-- ヘッダー -->
-  <header class="w-full max-w-md flex justify-between items-center bg-slate-800/90 p-3 rounded-xl border border-slate-700 shadow-lg">
-    <div class="flex items-center space-x-2">
-      <span id="status-indicator" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span id="status-text" class="text-xs font-semibold text-slate-300">通信準備OK</span>
-    </div>
-    <div id="role-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-300 font-bold hidden">
-      ---
-    </div>
-  </header>
+    <style>
+      :root {
+        --bg-dark: #070a12;
+        --table-bg: #0b1120;
+        --player-cyan: #00f0ff;
+        --player-cyan-glow: rgba(0, 240, 255, 0.45);
+        --opponent-red: #ff2a5f;
+        --opponent-red-glow: rgba(255, 42, 95, 0.45);
+        --puck-color: #ffffff;
+        --border-neon: #1e293b;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-gold: #fbbf24;
+      }
 
-  <!-- メインエリア -->
-  <main class="w-full max-w-md flex-1 flex flex-col justify-center items-center my-2 relative">
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
 
-    <!-- ロビー画面 -->
-    <div id="lobby-panel" class="w-full bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-2xl flex flex-col space-y-5">
-      <div class="text-center">
-        <h1 class="text-2xl font-black text-cyan-400 tracking-wider">オンライン・エアホッケー</h1>
-        <p class="text-xs text-slate-400 mt-1">クラウドサーバー経由でヌルヌル対戦！</p>
-      </div>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: var(--bg-dark);
+        color: var(--text-primary);
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        overflow-x: hidden;
+        overflow-y: auto;
+        touch-action: pan-y;
+      }
 
-      <!-- ホスト -->
-      <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/60 flex flex-col items-center">
-        <button id="btn-create" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-md transition active:scale-95">
-          部屋を作る（ホスト）
-        </button>
+      /* Main container */
+      .app-wrapper {
+        width: 100%;
+        max-width: 520px;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: radial-gradient(circle at 50% 20%, #0f172a 0%, #070a12 100%);
+        position: relative;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+      }
 
-        <div id="host-info" class="hidden mt-4 w-full flex flex-col items-center space-y-3">
-          <div class="text-center">
-            <span class="text-xs text-slate-400">あなたの部屋ID（合言葉）</span>
-            <div id="room-id-display" class="text-3xl font-black text-amber-400 tracking-widest my-1">----</div>
+      /* Header */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        background: rgba(11, 17, 32, 0.85);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        z-index: 20;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+
+      .brand-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--player-cyan);
+        box-shadow: 0 0 10px var(--player-cyan);
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--text-primary);
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.15s ease;
+      }
+
+      .icon-btn:hover, .icon-btn:active {
+        background: rgba(255, 255, 255, 0.16);
+        transform: translateY(-1px);
+      }
+
+      /* Views */
+      .view-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      /* Lobby / Mode Selection */
+      .lobby-view {
+        padding: 24px 20px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .hero-card {
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.6) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero-title {
+        font-size: 1.5rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #00f0ff 0%, #ffffff 50%, #ff2a5f 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 6px;
+      }
+
+      .hero-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      .action-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .mode-card {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        transition: border-color 0.2s ease, transform 0.15s ease;
+      }
+
+      .mode-card:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      .mode-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .mode-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .badge-cyan {
+        background: rgba(0, 240, 255, 0.15);
+        color: var(--player-cyan);
+        border: 1px solid rgba(0, 240, 255, 0.3);
+      }
+
+      .badge-red {
+        background: rgba(255, 42, 95, 0.15);
+        color: var(--opponent-red);
+        border: 1px solid rgba(255, 42, 95, 0.3);
+      }
+
+      .badge-gold {
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--accent-gold);
+        border: 1px solid rgba(251, 191, 36, 0.3);
+      }
+
+      .mode-desc {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.15s ease;
+      }
+
+      .btn-primary-cyan {
+        background: linear-gradient(135deg, #00d2ff 0%, #00f0ff 100%);
+        color: #050b14;
+        box-shadow: 0 4px 15px rgba(0, 240, 255, 0.35);
+      }
+      .btn-primary-cyan:hover, .btn-primary-cyan:active {
+        box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
+        transform: translateY(-1px);
+      }
+
+      .btn-primary-red {
+        background: linear-gradient(135deg, #f43f5e 0%, #ff2a5f 100%);
+        color: #ffffff;
+        box-shadow: 0 4px 15px rgba(255, 42, 95, 0.35);
+      }
+      .btn-primary-red:hover, .btn-primary-red:active {
+        box-shadow: 0 6px 20px rgba(255, 42, 95, 0.5);
+        transform: translateY(-1px);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      .input-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      .input-room {
+        flex: 1;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-align: center;
+        text-transform: uppercase;
+        outline: none;
+      }
+
+      .input-room:focus {
+        border-color: var(--opponent-red);
+        box-shadow: 0 0 10px rgba(255, 42, 95, 0.3);
+      }
+
+      /* Game Court Area */
+      .game-view {
+        flex: 1;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 8px;
+        position: relative;
+        touch-action: none;
+      }
+
+      .scoreboard {
+        width: 100%;
+        max-width: 440px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 8px 16px;
+        margin-bottom: 8px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .score-player {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .score-box {
+        font-size: 1.6rem;
+        font-weight: 900;
+        min-width: 36px;
+        text-align: center;
+      }
+
+      .score-box.player {
+        color: var(--player-cyan);
+        text-shadow: 0 0 10px var(--player-cyan-glow);
+      }
+
+      .score-box.opponent {
+        color: var(--opponent-red);
+        text-shadow: 0 0 10px var(--opponent-red-glow);
+      }
+
+      .score-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .game-status-badge {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: var(--text-secondary);
+      }
+
+      /* Canvas Arena */
+      .canvas-container {
+        width: 100%;
+        max-width: 440px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        touch-action: none;
+      }
+
+      canvas#hockeyCanvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: calc(100vh - 190px);
+        max-height: calc(100dvh - 190px);
+        background: var(--table-bg);
+        border-radius: 20px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0, 0, 0, 0.6);
+        border: 3px solid #1e293b;
+        touch-action: none;
+      }
+
+      /* Floating banner on court (GOAL! / Ready) */
+      .court-overlay-banner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(11, 17, 32, 0.9);
+        border: 2px solid var(--player-cyan);
+        padding: 12px 28px;
+        border-radius: 14px;
+        font-size: 1.8rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        color: #fff;
+        text-align: center;
+        pointer-events: none;
+        display: none;
+        z-index: 10;
+        box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
+        animation: popBanner 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      @keyframes popBanner {
+        0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      }
+
+      /* Modal backdrop & popups */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: 20px;
+      }
+
+      .modal-card {
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+        width: 100%;
+        max-width: 400px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+        position: relative;
+      }
+
+      .modal-close-btn {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.3rem;
+        cursor: pointer;
+        line-height: 1;
+      }
+
+      .qr-wrapper {
+        background: #ffffff;
+        padding: 14px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      }
+
+      .room-code-tag {
+        font-size: 2.2rem;
+        font-weight: 900;
+        letter-spacing: 0.25em;
+        color: var(--player-cyan);
+        text-shadow: 0 0 15px var(--player-cyan-glow);
+        margin: 4px 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* PWA Bottom Bar */
+      .pwa-bar {
+        position: sticky;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(11, 17, 32, 0.92);
+        backdrop-filter: blur(10px);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        z-index: 30;
+      }
+
+      .pwa-info {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .pwa-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #fff;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+        transition: transform 0.15s ease;
+      }
+
+      .pwa-btn:active {
+        transform: scale(0.96);
+      }
+
+      /* Form inputs in Settings Modal */
+      .config-input {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 10px;
+        color: #fff;
+        font-family: monospace;
+        font-size: 0.8rem;
+        resize: vertical;
+        min-height: 80px;
+        outline: none;
+      }
+      .config-input:focus {
+        border-color: var(--player-cyan);
+      }
+
+      /* Toast Notification */
+      .toast {
+        position: fixed;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%) translateY(30px);
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid var(--player-cyan);
+        color: #fff;
+        padding: 8px 18px;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.25s ease;
+        z-index: 200;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-wrapper">
+      <!-- Header -->
+      <header>
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <span>AIR HOCKEY RT</span>
+        </div>
+        <div class="header-actions">
+          <button id="soundToggleBtn" class="icon-btn" title="サウンド切替">
+            <span id="soundIcon">🔊</span>
+          </button>
+          <button id="settingsBtn" class="icon-btn" title="設定・Firebase情報">
+            <span>⚙️</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Container -->
+      <div class="view-container">
+        <!-- 1. Lobby View -->
+        <section id="lobbyView" class="lobby-view">
+          <div class="hero-card">
+            <div class="hero-title">リアルタイム対戦</div>
+            <div class="hero-desc">
+              スマホとPCで低遅延エアホッケーバトル！<br />
+              ルームを作成してQRコードや4桁コードで対戦しよう。
+            </div>
           </div>
-          <div id="qrcode-container" class="bg-white p-2 rounded-xl shadow-md border-2 border-amber-400"></div>
-          <p class="text-xs text-slate-400 text-center">相手にQRコードを読み取ってもらうか<br>4桁のIDを入力してもらってください</p>
+
+          <div class="action-grid">
+            <!-- Host Mode Card -->
+            <div class="mode-card">
+              <div class="mode-header">
+                <div class="mode-title">
+                  <span>👑 部屋を作る (ホスト)</span>
+                </div>
+                <span class="badge badge-cyan">HOST</span>
+              </div>
+              <div class="mode-desc">
+                4桁の部屋番号と接続用QRコードを発行します。相手がスマホでQRを読み取れば即座に対戦開始！
+              </div>
+              <button id="createRoomBtn" class="btn btn-primary-cyan">
+                <span>部屋を作成してQRを表示</span>
+              </button>
+            </div>
+
+            <!-- Guest Mode Card -->
+            <div class="mode-card">
+              <div class="mode-header">
+                <div class="mode-title">
+                  <span>⚡ 部屋に参加する (ゲスト)</span>
+                </div>
+                <span class="badge badge-red">GUEST</span>
+              </div>
+              <div class="mode-desc">
+                ホストから伝えられた4桁の部屋番号を入力して接続します。
+              </div>
+              <div class="input-group">
+                <input
+                  id="roomCodeInput"
+                  type="text"
+                  class="input-room"
+                  placeholder="例: 7492"
+                  maxlength="4"
+                  inputmode="numeric"
+                  autocomplete="off"
+                />
+                <button id="joinRoomBtn" class="btn btn-primary-red" style="width: auto; padding: 0 20px;">
+                  <span>参加</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Solo AI Mode Card -->
+            <div class="mode-card">
+              <div class="mode-header">
+                <div class="mode-title">
+                  <span>🤖 AIと練習する (ソロ)</span>
+                </div>
+                <span class="badge badge-gold">PRACTICE</span>
+              </div>
+              <div class="mode-desc">
+                Firebase未設定やオフラインでもすぐに遊べます。相手を待つ間のウォームアップにも最適です。
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="aiNormalBtn" class="btn btn-secondary" style="flex: 1;">
+                  <span>対戦スタート</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Game Arena View -->
+        <section id="gameView" class="game-view">
+          <div class="scoreboard">
+            <div class="score-player">
+              <span class="score-label" id="opponentName">相手</span>
+              <span class="score-box opponent" id="opponentScore">0</span>
+            </div>
+
+            <div class="game-status-badge" id="matchBadge">
+              先取 5点マッチ
+            </div>
+
+            <div class="score-player">
+              <span class="score-box player" id="playerScore">0</span>
+              <span class="score-label" id="playerName">あなた</span>
+            </div>
+          </div>
+
+          <div class="canvas-container">
+            <canvas id="hockeyCanvas" width="440" height="740"></canvas>
+            <div id="courtBanner" class="court-overlay-banner">GOAL!</div>
+          </div>
+
+          <div style="width: 100%; max-width: 440px; display: flex; justify-content: space-between; margin-top: 8px;">
+            <button id="leaveGameBtn" class="icon-btn" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3);">
+              <span>🚪 ロビーに戻る</span>
+            </button>
+            <span id="connectionStatusText" style="font-size: 0.75rem; color: var(--text-secondary); align-self: center;">
+              ● 接続中
+            </span>
+          </div>
+        </section>
+      </div>
+
+      <!-- PWA Install Bottom Bar -->
+      <footer id="pwaBar" class="pwa-bar">
+        <div class="pwa-info">
+          <span>📲</span>
+          <span>スマホ全画面で快適プレイ</span>
+        </div>
+        <button id="pwaInstallBtn" class="pwa-btn">
+          <span>ホーム画面に追加 (PWA)</span>
+        </button>
+      </footer>
+    </div>
+
+    <!-- Modal 1: Host Room QR Code & Waiting -->
+    <div id="hostModal" class="modal-backdrop">
+      <div class="modal-card">
+        <button id="closeHostModalBtn" class="modal-close-btn">&times;</button>
+        <h3 style="font-size: 1.25rem; font-weight: 800;">対戦相手を待っています</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">
+          対戦相手のスマホでこのQRコードを読み取るか、下記の部屋番号を入力してください。
+        </p>
+
+        <div class="qr-wrapper" id="qrContainer">
+          <!-- QRCode will be rendered here -->
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">部屋番号</div>
+        <div class="room-code-tag" id="displayRoomCode">----</div>
+
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <button id="copyRoomLinkBtn" class="btn btn-secondary" style="flex: 1;">
+            <span>🔗 招待URLをコピー</span>
+          </button>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--player-cyan); display: flex; align-items: center; gap: 6px;">
+          <span style="display: inline-block; animation: pulseDot 1.5s infinite;">⏳</span>
+          <span>参加を待機中...</span>
         </div>
       </div>
+    </div>
 
-      <div class="relative flex py-0.5 items-center">
-        <div class="flex-grow border-t border-slate-700"></div>
-        <span class="flex-shrink mx-4 text-xs text-slate-500">または</span>
-        <div class="flex-grow border-t border-slate-700"></div>
-      </div>
+    <!-- Modal 2: Game Over / Victory -->
+    <div id="gameOverModal" class="modal-backdrop">
+      <div class="modal-card">
+        <h2 id="resultTitle" style="font-size: 2rem; font-weight: 900;">YOU WIN!</h2>
+        <div style="font-size: 1rem; color: var(--text-secondary);" id="resultSubtitle">
+          おめでとうございます！
+        </div>
 
-      <!-- ゲスト -->
-      <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700/60 flex flex-col space-y-3">
-        <span class="text-xs text-slate-400 font-semibold">部屋に参加する（ゲスト）</span>
-        <div class="flex space-x-2">
-          <input type="text" id="input-room-id" maxlength="4" placeholder="4桁ID" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2 text-center text-lg font-bold tracking-widest text-amber-400 uppercase focus:outline-none focus:border-cyan-400">
-          <button id="btn-join" class="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition active:scale-95 whitespace-nowrap">
-            参加
+        <div style="display: flex; justify-content: center; align-items: center; gap: 24px; margin: 12px 0;">
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; color: var(--player-cyan);">あなた</div>
+            <div id="finalPlayerScore" style="font-size: 2.5rem; font-weight: 900; color: var(--player-cyan);">5</div>
+          </div>
+          <div style="font-size: 1.5rem; color: var(--text-secondary); font-weight: 700;">-</div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.8rem; color: var(--opponent-red);">相手</div>
+            <div id="finalOpponentScore" style="font-size: 2.5rem; font-weight: 900; color: var(--opponent-red);">3</div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+          <button id="rematchBtn" class="btn btn-primary-cyan">
+            <span>もう一度対戦する</span>
+          </button>
+          <button id="backToLobbyFromModalBtn" class="btn btn-secondary">
+            <span>ロビーに戻る</span>
           </button>
         </div>
       </div>
-
-      <!-- PWAインストール案内ボタン（非表示から必要時自動表示） -->
-      <button id="btn-install-pwa" class="hidden w-full py-2.5 bg-slate-700 hover:bg-slate-600 border border-slate-500 text-amber-300 font-bold text-xs rounded-xl shadow transition flex justify-center items-center space-x-2">
-        <span>📱 ホーム画面にアプリとして追加する</span>
-      </button>
     </div>
 
-    <!-- ゲーム画面 -->
-    <div id="game-panel" class="w-full h-full flex flex-col items-center justify-center hidden">
-      <!-- スコアボード -->
-      <div class="w-full flex justify-between items-center mb-2 px-4 py-1.5 bg-slate-800/90 border border-slate-700 rounded-xl">
-        <div class="flex items-center space-x-2">
-          <span class="text-xs text-rose-400 font-bold">相手:</span>
-          <span id="score-guest" class="text-xl font-black text-rose-400">0</span>
-        </div>
-        <div class="text-xs font-bold text-slate-400">7点先取</div>
-        <div class="flex items-center space-x-2">
-          <span class="text-xs text-cyan-400 font-bold">あなた:</span>
-          <span id="score-host" class="text-xl font-black text-cyan-400">0</span>
-        </div>
-      </div>
+    <!-- Modal 3: Settings & Firebase Config -->
+    <div id="settingsModal" class="modal-backdrop">
+      <div class="modal-card" style="max-width: 440px; text-align: left;">
+        <button id="closeSettingsModalBtn" class="modal-close-btn">&times;</button>
+        <h3 style="font-size: 1.2rem; font-weight: 800; align-self: flex-start;">⚙️ 設定 & Firebase構成</h3>
+        
+        <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4;">
+          Firebase Realtime DatabaseのURLを設定すると、世界中のスマホ・PC間でリアルタイム対戦できます。未設定の場合はローカルシミュレーション/AI練習モードで遊べます。
+        </p>
 
-      <!-- Canvas -->
-      <div class="relative w-full aspect-[1/1.6] max-h-[65vh] bg-slate-950 border-4 border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex justify-center items-center">
-        <canvas id="game-canvas" class="w-full h-full block"></canvas>
+        <div style="width: 100%;">
+          <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary);">
+            Firebase databaseURL (または設定JSON):
+          </label>
+          <textarea
+            id="customDbUrlInput"
+            class="config-input"
+            placeholder="https://your-project-default-rtdb.firebaseio.com"
+          ></textarea>
+        </div>
 
-        <!-- 勝敗オーバーレイ -->
-        <div id="game-overlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-center items-center text-center p-6 hidden">
-          <h2 id="overlay-title" class="text-3xl font-black text-amber-400 mb-2">勝利！</h2>
-          <p id="overlay-msg" class="text-sm text-slate-300 mb-6">素晴らしいプレイでした！</p>
-          <button id="btn-restart" class="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl transition active:scale-95 shadow-lg">
-            もう一度遊ぶ
+        <div style="display: flex; gap: 8px; width: 100%;">
+          <button id="saveConfigBtn" class="btn btn-primary-cyan" style="flex: 1; padding: 10px;">
+            <span>設定を保存</span>
+          </button>
+          <button id="resetConfigBtn" class="btn btn-secondary" style="width: auto; padding: 10px 14px;">
+            <span>初期化</span>
+          </button>
+        </div>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); width: 100%; padding-top: 12px;">
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+            GitHub Pages用シングルファイル:
+          </div>
+          <button id="downloadHtmlBtn" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 12px;">
+            <span>📥 index.html をダウンロード</span>
           </button>
         </div>
       </div>
     </div>
 
-  </main>
+    <!-- Modal 4: iOS Safari PWA Guide -->
+    <div id="iosPwaModal" class="modal-backdrop">
+      <div class="modal-card">
+        <button id="closeIosModalBtn" class="modal-close-btn">&times;</button>
+        <h3 style="font-size: 1.2rem; font-weight: 800;">iPhoneでアプリ化する方法</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: left; line-height: 1.6;">
+          1. Safari下部の「<strong>共有アイコン</strong> (四角から矢印)」をタップします。<br />
+          2. メニューをスクロールし、「<strong>ホーム画面に追加</strong>」を選択します。<br />
+          3. 右上の「追加」をタップすると、全画面アプリとしてインストールされます！
+        </p>
+        <button id="closeIosModalBtn2" class="btn btn-secondary" style="width: 100%;">
+          <span>閉じる</span>
+        </button>
+      </div>
+    </div>
 
-  <footer class="text-xs text-slate-500 text-center">
-    Firebase Cloud Sync Air Hockey
-  </footer>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">メッセージ</div>
 
-  <script>
-    // --- Firebase 設定 ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyA_9uiRwryteR9lekydrfBXncQ2OAnIEUQ",
-      authDomain: "nantoka-448b3.firebaseapp.com",
-      databaseURL: "https://nantoka-448b3-default-rtdb.firebaseio.com",
-      projectId: "nantoka-448b3",
-      storageBucket: "nantoka-448b3.firebasestorage.app",
-      messagingSenderId: "901276290696",
-      appId: "1:901276290696:web:c6b1de94f197ff8713d93d",
-      measurementId: "G-GYHETNP4Y3"
-    };
+    <!-- ================================================================= -->
+    <!-- JAVASCRIPT: ゲーム本体・同期・物理・オーディオ・PWA -->
+    <!-- ================================================================= -->
+    <script>
+      /**
+       * ===================================================================
+       * 🔧 FIREBASE REALTIME DATABASE 設定
+       * ===================================================================
+       * Firebase Console (https://console.firebase.google.com/) から
+       * プロジェクト作成 ➔ Realtime Database作成 ➔ 構成情報を設定してください。
+       * (本アプリは未設定の場合でも、ローカルシミュレーション & AI対戦モードで
+       * そのまま完全動作します)
+       */
+      const DEFAULT_FIREBASE_CONFIG = {
+        apiKey: "AIzaSy_YOUR_API_KEY_HERE",
+        authDomain: "your-air-hockey-project.firebaseapp.com",
+        databaseURL: "https://your-air-hockey-project-default-rtdb.firebaseio.com",
+        projectId: "your-air-hockey-project",
+        storageBucket: "your-air-hockey-project.appspot.com",
+        messagingSenderId: "123456789012",
+        appId: "1:123456789012:web:abcdef123456"
+      };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // --- ゲーム定数 ---
-    const GAME_WIDTH = 400;
-    const GAME_HEIGHT = 640;
-    const PADDLE_RADIUS = 28;
-    const PUCK_RADIUS = 16;
-    const GOAL_WIDTH = 140;
-
-    let isHost = false;
-    let myRoomId = '';
-    let roomRef = null;
-
-    // 初期マレット位置（全員共通で自分の手前中央）
-    const DEFAULT_MY_PADDLE = { x: GAME_WIDTH / 2, y: GAME_HEIGHT - 60 };
-    const DEFAULT_OPP_PADDLE = { x: GAME_WIDTH / 2, y: 60 };
-
-    // ゲーム内状態（ホスト基準の座標系）
-    let gameState = {
-      hostPaddle: { ...DEFAULT_MY_PADDLE },
-      guestPaddle: { ...DEFAULT_OPP_PADDLE },
-      puck: { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2, vx: 0, vy: 0 },
-      scoreHost: 0,
-      scoreGuest: 0,
-      isPlaying: false
-    };
-
-    // ローカル（自分の画面）の目標座標
-    let targetMyPaddle = { ...DEFAULT_MY_PADDLE };
-    let targetOppPaddle = { ...DEFAULT_OPP_PADDLE };
-    let targetPuck = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
-
-    // 描画用の補間位置
-    let drawMyPaddle = { ...DEFAULT_MY_PADDLE };
-    let drawOppPaddle = { ...DEFAULT_OPP_PADDLE };
-    let drawPuck = { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 };
-
-    // UI要素
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('status-text');
-    const roleBadge = document.getElementById('role-badge');
-    const lobbyPanel = document.getElementById('lobby-panel');
-    const gamePanel = document.getElementById('game-panel');
-    const btnCreate = document.getElementById('btn-create');
-    const btnJoin = document.getElementById('btn-join');
-    const hostInfo = document.getElementById('host-info');
-    const roomIdDisplay = document.getElementById('room-id-display');
-    const qrcodeContainer = document.getElementById('qrcode-container');
-    const inputRoomId = document.getElementById('input-room-id');
-    const scoreHostEl = document.getElementById('score-host');
-    const scoreGuestEl = document.getElementById('score-guest');
-    const gameOverlay = document.getElementById('game-overlay');
-    const overlayTitle = document.getElementById('overlay-title');
-    const overlayMsg = document.getElementById('overlay-msg');
-    const btnRestart = document.getElementById('btn-restart');
-    const btnInstallPwa = document.getElementById('btn-install-pwa');
-
-    const canvas = document.getElementById('game-canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = GAME_WIDTH;
-    canvas.height = GAME_HEIGHT;
-
-    // URLパラメータの確認 (QRコード用)
-    window.addEventListener('load', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const joinId = urlParams.get('join');
-      if (joinId) {
-        inputRoomId.value = joinId;
-        joinRoom(joinId);
-      }
-    });
-
-    // PWA（アプリ化）インストール案内イベント
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      btnInstallPwa.classList.remove('hidden');
-    });
-
-    btnInstallPwa.addEventListener('click', () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            btnInstallPwa.classList.add('hidden');
+      // localStorageからカスタム設定の読み込み
+      let activeFirebaseConfig = { ...DEFAULT_FIREBASE_CONFIG };
+      const savedCustomConfig = localStorage.getItem('air_hockey_firebase_config');
+      if (savedCustomConfig) {
+        try {
+          if (savedCustomConfig.startsWith('{')) {
+            activeFirebaseConfig = JSON.parse(savedCustomConfig);
+          } else if (savedCustomConfig.startsWith('http')) {
+            activeFirebaseConfig.databaseURL = savedCustomConfig.trim();
           }
-          deferredPrompt = null;
-        });
-      }
-    });
-
-    // ホスト：部屋作成
-    btnCreate.addEventListener('click', () => {
-      isHost = true;
-      myRoomId = Math.floor(1000 + Math.random() * 9000).toString();
-      roomRef = db.ref('rooms/' + myRoomId);
-
-      roleBadge.textContent = 'ホスト';
-      roleBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-cyan-900/80 text-cyan-300 font-bold border border-cyan-700';
-      roleBadge.classList.remove('hidden');
-
-      roomIdDisplay.textContent = myRoomId;
-      hostInfo.classList.remove('hidden');
-      btnCreate.classList.add('hidden');
-
-      qrcodeContainer.innerHTML = '';
-      const joinUrl = window.location.origin + window.location.pathname + '?join=' + myRoomId;
-      new QRCode(qrcodeContainer, {
-        text: joinUrl,
-        width: 120,
-        height: 120,
-        colorDark: "#0f172a",
-        colorLight: "#ffffff"
-      });
-
-      statusText.textContent = 'ゲストの接続を待っています...';
-
-      // 初期データ書き込み
-      resetGame();
-      roomRef.set({
-        state: gameState,
-        status: 'waiting',
-        guestPaddleLocal: { ...DEFAULT_MY_PADDLE } // ゲストの初期ローカル位置
-      });
-
-      // ゲストの参加を監視
-      roomRef.child('status').on('value', (snapshot) => {
-        if (snapshot.val() === 'playing') {
-          startGame();
+        } catch (e) {
+          console.warn("Failed to parse saved config", e);
         }
-      });
-
-      // ゲストのマレット移動を監視
-      roomRef.child('guestPaddleLocal').on('value', (snapshot) => {
-        const pos = snapshot.val();
-        if (pos) {
-          targetOppPaddle.x = GAME_WIDTH - pos.x;
-          targetOppPaddle.y = GAME_HEIGHT - pos.y;
-        }
-      });
-    });
-
-    // ゲスト：部屋参加
-    btnJoin.addEventListener('click', () => {
-      const targetId = inputRoomId.value.trim();
-      if (targetId.length === 4) {
-        joinRoom(targetId);
-      } else {
-        alert('4桁の部屋IDを入力してください');
       }
-    });
 
-    function joinRoom(targetId) {
-      isHost = false;
-      myRoomId = targetId;
-      roomRef = db.ref('rooms/' + myRoomId);
+      // Firebase 初期化
+      let firebaseApp = null;
+      let database = null;
+      let isFirebaseReady = false;
 
-      roleBadge.textContent = 'ゲスト';
-      roleBadge.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-900/80 text-emerald-300 font-bold border border-emerald-700';
-      roleBadge.classList.remove('hidden');
+      function initFirebase() {
+        if (typeof firebase !== 'undefined' && activeFirebaseConfig.databaseURL && !activeFirebaseConfig.databaseURL.includes('your-air-hockey-project')) {
+          try {
+            if (!firebase.apps.length) {
+              firebaseApp = firebase.initializeApp(activeFirebaseConfig);
+            } else {
+              firebaseApp = firebase.app();
+            }
+            database = firebase.database();
+            isFirebaseReady = true;
+            console.log("Firebase Realtime Database initialized successfully.");
+          } catch (err) {
+            console.warn("Firebase initialization error:", err);
+            isFirebaseReady = false;
+          }
+        } else {
+          console.info("Firebase credentials placeholder active. Online rooms will run in demo/local simulation mode.");
+          isFirebaseReady = false;
+        }
+      }
 
-      statusText.textContent = '部屋に接続中...';
+      initFirebase();
 
-      roomRef.once('value', (snapshot) => {
-        if (snapshot.exists()) {
-          roomRef.update({ 
-            status: 'playing',
-            guestPaddleLocal: { ...DEFAULT_MY_PADDLE }
+      // ===================================================================
+      // 🔊 WEB AUDIO API (シンセサイザー効果音)
+      // ===================================================================
+      class SoundFX {
+        constructor() {
+          this.ctx = null;
+          this.enabled = localStorage.getItem('air_hockey_sound') !== 'false';
+        }
+
+        initContext() {
+          if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+              this.ctx = new AudioContext();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        }
+
+        playHit(power = 1.0) {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          const baseFreq = 220 + Math.min(power * 25, 280);
+          osc.frequency.setValueAtTime(baseFreq, now);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+
+          gain.gain.setValueAtTime(Math.min(0.4 * power, 0.6), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.09);
+        }
+
+        playWall() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(360, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.05);
+
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.06);
+        }
+
+        playGoal() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          // Arpeggio chord
+          [440, 554, 659, 880].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+            gain.gain.setValueAtTime(0.18, now + idx * 0.07);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now + idx * 0.07);
+            osc.stop(now + idx * 0.07 + 0.36);
           });
-          startGame();
+        }
 
-          // ホストからの全体ゲーム状態を監視
-          roomRef.child('state').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-              gameState = data;
-              targetOppPaddle = invertPos(gameState.hostPaddle);
-              targetPuck = invertPos(gameState.puck);
-              updateScores();
+        playWin() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
 
-              if (data.gameOver) {
-                showGameOver(data.winner);
-              } else if (!data.isPlaying && gameOverlay.classList.contains('hidden') === false) {
-                hideGameOver();
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          const now = this.ctx.currentTime;
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+            gain.gain.setValueAtTime(0.25, now + idx * 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.1);
+            osc.stop(now + idx * 0.1 + 0.41);
+          });
+        }
+
+        toggle() {
+          this.enabled = !this.enabled;
+          localStorage.setItem('air_hockey_sound', this.enabled ? 'true' : 'false');
+          return this.enabled;
+        }
+      }
+
+      const sound = new SoundFX();
+
+      // ===================================================================
+      // 🏓 物理演算 & ゲームエンジン
+      // ===================================================================
+      const COURT_WIDTH = 440;
+      const COURT_HEIGHT = 740;
+      const GOAL_WIDTH = 170;
+      const GOAL_MIN_X = (COURT_WIDTH - GOAL_WIDTH) / 2;
+      const GOAL_MAX_X = GOAL_MIN_X + GOAL_WIDTH;
+      const PUCK_RADIUS = 18;
+      const MALLET_RADIUS = 34;
+      const WINNING_SCORE = 5;
+
+      class ParticleSystem {
+        constructor() {
+          this.particles = [];
+        }
+
+        emit(x, y, color, count = 12, speed = 4) {
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const velocity = (Math.random() * 0.7 + 0.3) * speed;
+            this.particles.push({
+              x,
+              y,
+              vx: Math.cos(angle) * velocity,
+              vy: Math.sin(angle) * velocity,
+              color,
+              alpha: 1.0,
+              size: Math.random() * 4 + 2,
+              decay: Math.random() * 0.03 + 0.02
+            });
+          }
+        }
+
+        updateAndDraw(ctx) {
+          for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.96;
+            p.vy *= 0.96;
+            p.alpha -= p.decay;
+
+            if (p.alpha <= 0) {
+              this.particles.splice(i, 1);
+              continue;
+            }
+
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+
+      // Game state container
+      const game = {
+        role: 'SOLO_AI', // 'HOST', 'GUEST', 'SOLO_AI'
+        roomCode: null,
+        roomRef: null,
+        active: false,
+        isPaused: false,
+
+        // Positions
+        playerMallet: { x: COURT_WIDTH / 2, y: COURT_HEIGHT * 0.82, vx: 0, vy: 0 },
+        opponentMallet: { x: COURT_WIDTH / 2, y: COURT_HEIGHT * 0.18, targetX: COURT_WIDTH / 2, targetY: COURT_HEIGHT * 0.18 },
+        puck: {
+          x: COURT_WIDTH / 2,
+          y: COURT_HEIGHT / 2,
+          vx: 0,
+          vy: 0,
+          targetX: COURT_WIDTH / 2,
+          targetY: COURT_HEIGHT / 2
+        },
+
+        // Scores
+        playerScore: 0,
+        opponentScore: 0,
+
+        // Input tracking
+        pointerDown: false,
+        lastPointerPos: { x: COURT_WIDTH / 2, y: COURT_HEIGHT * 0.82 },
+        targetPlayerPos: { x: COURT_WIDTH / 2, y: COURT_HEIGHT * 0.82 },
+
+        // Simulation / Host timing
+        lastSyncTime: 0,
+        particles: new ParticleSystem(),
+        goalCooldown: 0,
+        puckTrail: []
+      };
+
+      const canvas = document.getElementById('hockeyCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // ===================================================================
+      // 📱 タッチ & マウス入力制御
+      // ===================================================================
+      function getCanvasPoint(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      function handlePointerStart(evt) {
+        sound.initContext();
+        game.pointerDown = true;
+        const pos = getCanvasPoint(evt);
+        updatePlayerTarget(pos);
+      }
+
+      function handlePointerMove(evt) {
+        if (!game.active) return;
+        const pos = getCanvasPoint(evt);
+        if (game.pointerDown || !evt.touches) {
+          updatePlayerTarget(pos);
+        }
+      }
+
+      function handlePointerEnd() {
+        game.pointerDown = false;
+      }
+
+      function updatePlayerTarget(pos) {
+        // 自陣（下半分）に制限
+        const margin = MALLET_RADIUS + 8;
+        const clampedX = Math.max(margin, Math.min(COURT_WIDTH - margin, pos.x));
+        const clampedY = Math.max(COURT_HEIGHT / 2 + margin, Math.min(COURT_HEIGHT - margin, pos.y));
+
+        game.targetPlayerPos.x = clampedX;
+        game.targetPlayerPos.y = clampedY;
+      }
+
+      canvas.addEventListener('mousedown', handlePointerStart);
+      window.addEventListener('mousemove', handlePointerMove);
+      window.addEventListener('mouseup', handlePointerEnd);
+
+      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerStart(e); }, { passive: false });
+      window.addEventListener('touchmove', (e) => { if (game.active) e.preventDefault(); handlePointerMove(e); }, { passive: false });
+      window.addEventListener('touchend', handlePointerEnd);
+      window.addEventListener('touchcancel', handlePointerEnd);
+
+      // ===================================================================
+      // 🤖 オフライン練習用 AI ロジック
+      // ===================================================================
+      function updateAI() {
+        const puck = game.puck;
+        const opp = game.opponentMallet;
+        const homeX = COURT_WIDTH / 2;
+        const homeY = COURT_HEIGHT * 0.18;
+
+        let targetX = homeX;
+        let targetY = homeY;
+
+        // パックが相手陣地（上半分）にある場合は迎撃
+        if (puck.y < COURT_HEIGHT * 0.55) {
+          targetX = puck.x;
+          // パックの少し奥側からスマッシュ
+          targetY = Math.max(MALLET_RADIUS + 20, puck.y - 10);
+        } else {
+          // 自陣守備位置：パックのX座標に合わせてディフェンスラインを調整
+          targetX = homeX + (puck.x - homeX) * 0.6;
+          targetY = homeY;
+        }
+
+        // 移動速度制限
+        const speed = 7.5;
+        const dx = targetX - opp.x;
+        const dy = targetY - opp.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 2) {
+          opp.x += (dx / dist) * Math.min(speed, dist);
+          opp.y += (dy / dist) * Math.min(speed, dist);
+        }
+
+        // 上半分の範囲内にクランプ
+        const margin = MALLET_RADIUS + 8;
+        opp.x = Math.max(margin, Math.min(COURT_WIDTH - margin, opp.x));
+        opp.y = Math.max(margin, Math.min(COURT_HEIGHT / 2 - margin, opp.y));
+      }
+
+      // ===================================================================
+      // ⚙️ 物理シミュレーション (ホスト & ソロAIが権威サーバーとして実行)
+      // ===================================================================
+      function updatePhysics() {
+        const isPhysicsAuthority = (game.role === 'HOST' || game.role === 'SOLO_AI');
+
+        // プレイヤーのマレット移動と速度計算
+        const oldPlayerX = game.playerMallet.x;
+        const oldPlayerY = game.playerMallet.y;
+        // ぬるぬる補間 (LERP)
+        game.playerMallet.x += (game.targetPlayerPos.x - game.playerMallet.x) * 0.55;
+        game.playerMallet.y += (game.targetPlayerPos.y - game.playerMallet.y) * 0.55;
+        game.playerMallet.vx = game.playerMallet.x - oldPlayerX;
+        game.playerMallet.vy = game.playerMallet.y - oldPlayerY;
+
+        // 相手マレットの処理
+        if (game.role === 'SOLO_AI') {
+          updateAI();
+        } else if (game.role === 'HOST') {
+          // ゲストから送られてくる相手マレット座標を補間
+          game.opponentMallet.x += (game.opponentMallet.targetX - game.opponentMallet.x) * 0.45;
+          game.opponentMallet.y += (game.opponentMallet.targetY - game.opponentMallet.y) * 0.45;
+        } else if (game.role === 'GUEST') {
+          // ゲスト側はホストから受信したパック位置・相手位置をLERPで滑らかに更新
+          game.puck.x += (game.puck.targetX - game.puck.x) * 0.38;
+          game.puck.y += (game.puck.targetY - game.puck.y) * 0.38;
+          game.opponentMallet.x += (game.opponentMallet.targetX - game.opponentMallet.x) * 0.45;
+          game.opponentMallet.y += (game.opponentMallet.targetY - game.opponentMallet.y) * 0.45;
+        }
+
+        // ホスト/AI側のみパックの物理演算をシミュレート（二重判定防止）
+        if (isPhysicsAuthority && game.goalCooldown <= 0) {
+          const puck = game.puck;
+
+          // 速度適用
+          puck.x += puck.vx;
+          puck.y += puck.vy;
+
+          // 摩擦減衰
+          puck.vx *= 0.992;
+          puck.vy *= 0.992;
+
+          // 最高速度制限
+          const speed = Math.hypot(puck.vx, puck.vy);
+          const maxSpeed = 22;
+          if (speed > maxSpeed) {
+            puck.vx = (puck.vx / speed) * maxSpeed;
+            puck.vy = (puck.vy / speed) * maxSpeed;
+          }
+
+          // 左右の壁との衝突
+          if (puck.x - PUCK_RADIUS < 10) {
+            puck.x = 10 + PUCK_RADIUS;
+            puck.vx = -puck.vx * 0.92;
+            sound.playWall();
+            game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+          } else if (puck.x + PUCK_RADIUS > COURT_WIDTH - 10) {
+            puck.x = COURT_WIDTH - 10 - PUCK_RADIUS;
+            puck.vx = -puck.vx * 0.92;
+            sound.playWall();
+            game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+          }
+
+          // 上下の壁（ゴール判定エリア外）との衝突
+          // 上壁
+          if (puck.y - PUCK_RADIUS < 10) {
+            if (puck.x >= GOAL_MIN_X && puck.x <= GOAL_MAX_X) {
+              // ゴール判定 (奥のゴールに入った -> プレイヤーの得点)
+              if (puck.y - PUCK_RADIUS < -10) {
+                handleGoal('PLAYER');
+                return;
               }
+            } else {
+              puck.y = 10 + PUCK_RADIUS;
+              puck.vy = -puck.vy * 0.92;
+              sound.playWall();
+              game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+            }
+          }
+
+          // 下壁
+          if (puck.y + PUCK_RADIUS > COURT_HEIGHT - 10) {
+            if (puck.x >= GOAL_MIN_X && puck.x <= GOAL_MAX_X) {
+              // ゴール判定 (手前のゴールに入った -> 相手の得点)
+              if (puck.y + PUCK_RADIUS > COURT_HEIGHT + 10) {
+                handleGoal('OPPONENT');
+                return;
+              }
+            } else {
+              puck.y = COURT_HEIGHT - 10 - PUCK_RADIUS;
+              puck.vy = -puck.vy * 0.92;
+              sound.playWall();
+              game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+            }
+          }
+
+          // スマッシャーとパックの円同士の衝突判定
+          checkMalletPuckCollision(game.playerMallet, 'var(--player-cyan)', 1);
+          checkMalletPuckCollision(game.opponentMallet, 'var(--opponent-red)', -1);
+        }
+
+        if (game.goalCooldown > 0) {
+          game.goalCooldown--;
+        }
+
+        // パックの軌跡エフェクト追加
+        if (Math.hypot(game.puck.vx, game.puck.vy) > 3) {
+          game.puckTrail.push({ x: game.puck.x, y: game.puck.y, alpha: 0.5 });
+          if (game.puckTrail.length > 7) {
+            game.puckTrail.shift();
+          }
+        } else {
+          if (game.puckTrail.length > 0) game.puckTrail.shift();
+        }
+      }
+
+      function checkMalletPuckCollision(mallet, sparkColor, sideSign) {
+        const puck = game.puck;
+        const dx = puck.x - mallet.x;
+        const dy = puck.y - mallet.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = PUCK_RADIUS + MALLET_RADIUS;
+
+        if (dist < minDist && dist > 0.001) {
+          // めり込み防止の押し出し
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          puck.x += nx * overlap;
+          puck.y += ny * overlap;
+
+          // 相対速度と反発ベクトルの計算
+          const malletVx = mallet.vx || 0;
+          const malletVy = mallet.vy || 0;
+          const relVx = puck.vx - malletVx;
+          const relVy = puck.vy - malletVy;
+
+          const dot = relVx * nx + relVy * ny;
+          if (dot < 0) {
+            const restitution = 1.35;
+            puck.vx -= (1 + restitution) * dot * nx;
+            puck.vy -= (1 + restitution) * dot * ny;
+
+            // マレットの移動慣性を付加
+            puck.vx += malletVx * 0.6;
+            puck.vy += malletVy * 0.6;
+
+            const impactSpeed = Math.hypot(puck.vx, puck.vy);
+            sound.playHit(impactSpeed / 10);
+            game.particles.emit(
+              mallet.x + nx * MALLET_RADIUS,
+              mallet.y + ny * MALLET_RADIUS,
+              sparkColor,
+              14,
+              impactSpeed * 0.4
+            );
+          }
+        }
+      }
+
+      function handleGoal(scorer) {
+        game.goalCooldown = 80;
+        sound.playGoal();
+
+        const banner = document.getElementById('courtBanner');
+        if (scorer === 'PLAYER') {
+          game.playerScore++;
+          banner.textContent = 'GOAL! 獲得!';
+          banner.style.borderColor = 'var(--player-cyan)';
+          banner.style.color = 'var(--player-cyan)';
+          game.particles.emit(COURT_WIDTH / 2, 20, 'var(--player-cyan)', 50, 8);
+        } else {
+          game.opponentScore++;
+          banner.textContent = '相手のゴール!';
+          banner.style.borderColor = 'var(--opponent-red)';
+          banner.style.color = 'var(--opponent-red)';
+          game.particles.emit(COURT_WIDTH / 2, COURT_HEIGHT - 20, 'var(--opponent-red)', 50, 8);
+        }
+
+        updateScoreDisplay();
+        banner.style.display = 'block';
+
+        setTimeout(() => {
+          banner.style.display = 'none';
+        }, 1500);
+
+        // 勝敗判定
+        if (game.playerScore >= WINNING_SCORE || game.opponentScore >= WINNING_SCORE) {
+          setTimeout(() => {
+            endMatch();
+          }, 1000);
+          return;
+        }
+
+        // パックのリセット（失点した側の手前にリセット）
+        setTimeout(() => {
+          resetPuck(scorer === 'PLAYER' ? -1 : 1);
+        }, 800);
+      }
+
+      function resetPuck(direction = 1) {
+        game.puck.x = COURT_WIDTH / 2;
+        game.puck.y = COURT_HEIGHT / 2 + direction * 40;
+        game.puck.vx = (Math.random() - 0.5) * 4;
+        game.puck.vy = direction * 4;
+      }
+
+      function updateScoreDisplay() {
+        document.getElementById('playerScore').textContent = game.playerScore;
+        document.getElementById('opponentScore').textContent = game.opponentScore;
+      }
+
+      function endMatch() {
+        game.active = false;
+        const playerWon = game.playerScore >= WINNING_SCORE;
+        const modal = document.getElementById('gameOverModal');
+        const title = document.getElementById('resultTitle');
+        const subtitle = document.getElementById('resultSubtitle');
+
+        if (playerWon) {
+          title.textContent = 'YOU WIN! 🏆';
+          title.style.color = 'var(--player-cyan)';
+          subtitle.textContent = '素晴らしい勝利です！';
+          sound.playWin();
+        } else {
+          title.textContent = 'YOU LOSE 💥';
+          title.style.color = 'var(--opponent-red)';
+          subtitle.textContent = '次はリベンジしましょう！';
+        }
+
+        document.getElementById('finalPlayerScore').textContent = game.playerScore;
+        document.getElementById('finalOpponentScore').textContent = game.opponentScore;
+        modal.style.display = 'flex';
+      }
+
+      // ===================================================================
+      // 🎨 描画ループ (HTML5 Canvas 60 FPS)
+      // ===================================================================
+      function drawCourt() {
+        ctx.clearRect(0, 0, COURT_WIDTH, COURT_HEIGHT);
+
+        // 1. テーブル天板
+        ctx.fillStyle = '#0b1120';
+        ctx.fillRect(0, 0, COURT_WIDTH, COURT_HEIGHT);
+
+        // 2. コート外枠・壁
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#1e293b';
+        ctx.strokeRect(3, 3, COURT_WIDTH - 6, COURT_HEIGHT - 6);
+
+        // 3. センターライン & センターサークル
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(10, COURT_HEIGHT / 2);
+        ctx.lineTo(COURT_WIDTH - 10, COURT_HEIGHT / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // センターサークル
+        ctx.beginPath();
+        ctx.arc(COURT_WIDTH / 2, COURT_HEIGHT / 2, 60, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.arc(COURT_WIDTH / 2, COURT_HEIGHT / 2, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4. ゴールエリア（上奥・手前）
+        // 奥側ゴール (相手陣)
+        ctx.fillStyle = 'rgba(255, 42, 95, 0.25)';
+        ctx.fillRect(GOAL_MIN_X, 0, GOAL_WIDTH, 14);
+        ctx.strokeStyle = 'var(--opponent-red)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(GOAL_MIN_X, 0, GOAL_WIDTH, 14);
+
+        // 手前側ゴール (自陣)
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+        ctx.fillRect(GOAL_MIN_X, COURT_HEIGHT - 14, GOAL_WIDTH, 14);
+        ctx.strokeStyle = 'var(--player-cyan)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(GOAL_MIN_X, COURT_HEIGHT - 14, GOAL_WIDTH, 14);
+
+        // 5. パックの軌跡
+        game.puckTrail.forEach((trail, idx) => {
+          ctx.save();
+          ctx.globalAlpha = (idx / game.puckTrail.length) * 0.3;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.beginPath();
+          ctx.arc(trail.x, trail.y, PUCK_RADIUS * 0.85, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        });
+
+        // 6. パック (Puck)
+        ctx.save();
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 12;
+
+        // パック本体グラデーション
+        const puckGrad = ctx.createRadialGradient(
+          game.puck.x - 4, game.puck.y - 4, 3,
+          game.puck.x, game.puck.y, PUCK_RADIUS
+        );
+        puckGrad.addColorStop(0, '#ffffff');
+        puckGrad.addColorStop(0.7, '#e2e8f0');
+        puckGrad.addColorStop(1, '#94a3b8');
+
+        ctx.fillStyle = puckGrad;
+        ctx.beginPath();
+        ctx.arc(game.puck.x, game.puck.y, PUCK_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.stroke();
+        ctx.restore();
+
+        // 7. パーティクル
+        game.particles.updateAndDraw(ctx);
+
+        // 8. 相手のマレット (赤・上部)
+        drawMallet(game.opponentMallet.x, game.opponentMallet.y, '#ff2a5f', '#ff6b8b', 'rgba(255, 42, 95, 0.5)');
+
+        // 9. プレイヤーのマレット (シアン・下部)
+        drawMallet(game.playerMallet.x, game.playerMallet.y, '#00f0ff', '#67e8f9', 'rgba(0, 240, 255, 0.5)');
+      }
+
+      function drawMallet(x, y, baseColor, lightColor, glowColor) {
+        ctx.save();
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 18;
+
+        // 外周リング
+        const outerGrad = ctx.createRadialGradient(x - 6, y - 6, 6, x, y, MALLET_RADIUS);
+        outerGrad.addColorStop(0, lightColor);
+        outerGrad.addColorStop(0.7, baseColor);
+        outerGrad.addColorStop(1, '#0f172a');
+
+        ctx.fillStyle = outerGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, MALLET_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // 中心の突起（持ち手・グリップ）
+        const handleGrad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, MALLET_RADIUS * 0.45);
+        handleGrad.addColorStop(0, '#ffffff');
+        handleGrad.addColorStop(0.8, baseColor);
+        handleGrad.addColorStop(1, '#020617');
+
+        ctx.fillStyle = handleGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, MALLET_RADIUS * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function gameLoop() {
+        if (game.active && !game.isPaused) {
+          updatePhysics();
+          syncNetwork();
+        }
+        drawCourt();
+        requestAnimationFrame(gameLoop);
+      }
+
+      requestAnimationFrame(gameLoop);
+
+      // ===================================================================
+      // 📡 リアルタイム通信 (Firebase RTDB & 対称正規化座標)
+      // ===================================================================
+      function syncNetwork() {
+        const now = Date.now();
+        // ネットワーク送信は約30fps（33ms間隔）で間引いて通信負荷を軽減
+        if (now - game.lastSyncTime < 32) return;
+        game.lastSyncTime = now;
+
+        // 180度対称座標の正規化計算:
+        // 自分は常に下半分(y: 0.5 ~ 1.0)を見ている。
+        // Firebaseへ送信する際は、相手の視点(1.0 - x, 1.0 - y)で逆転させて送るか、
+        // 統一した正規化座標 (0.0 ~ 1.0) で同期する。
+        const normPlayerX = game.playerMallet.x / COURT_WIDTH;
+        const normPlayerY = game.playerMallet.y / COURT_HEIGHT;
+
+        if (game.role === 'HOST' && isFirebaseReady && game.roomRef) {
+          // ホストはパック物理とスコアを更新
+          game.roomRef.child('hostState').set({
+            x: normPlayerX,
+            y: normPlayerY,
+            puckX: game.puck.x / COURT_WIDTH,
+            puckY: game.puck.y / COURT_HEIGHT,
+            puckVx: game.puck.vx / COURT_WIDTH,
+            puckVy: game.puck.vy / COURT_HEIGHT,
+            scoreHost: game.playerScore,
+            scoreGuest: game.opponentScore,
+            timestamp: now
+          });
+        } else if (game.role === 'GUEST' && isFirebaseReady && game.roomRef) {
+          // ゲストは自マレットの位置のみ送信
+          game.roomRef.child('guestState').set({
+            x: normPlayerX,
+            y: normPlayerY,
+            timestamp: now
+          });
+        } else if (!isFirebaseReady && (game.role === 'HOST' || game.role === 'GUEST')) {
+          // Firebase未設定時のローカルストレージ・模擬通信（同一ブラウザ2タブ対戦可能）
+          syncLocalSimulatedNetwork(normPlayerX, normPlayerY, now);
+        }
+      }
+
+      // 同一ブラウザの別タブでテストできるローカルシミュレーション
+      function syncLocalSimulatedNetwork(normX, normY, now) {
+        if (!game.roomCode) return;
+        const key = 'airhockey_sim_room_' + game.roomCode;
+
+        if (game.role === 'HOST') {
+          const payload = {
+            host: { x: normX, y: normY },
+            puck: {
+              x: game.puck.x / COURT_WIDTH,
+              y: game.puck.y / COURT_HEIGHT,
+              vx: game.puck.vx / COURT_WIDTH,
+              vy: game.puck.vy / COURT_HEIGHT
+            },
+            scoreHost: game.playerScore,
+            scoreGuest: game.opponentScore,
+            guestJoined: true,
+            ts: now
+          };
+          localStorage.setItem(key + '_host', JSON.stringify(payload));
+
+          // ゲストの位置をlocalStorageから取得
+          const guestRaw = localStorage.getItem(key + '_guest');
+          if (guestRaw) {
+            try {
+              const gData = JSON.parse(guestRaw);
+              // 180度反転
+              game.opponentMallet.targetX = (1.0 - gData.x) * COURT_WIDTH;
+              game.opponentMallet.targetY = (1.0 - gData.y) * COURT_HEIGHT;
+            } catch (e) {}
+          }
+        } else if (game.role === 'GUEST') {
+          localStorage.setItem(key + '_guest', JSON.stringify({ x: normX, y: normY, ts: now }));
+
+          const hostRaw = localStorage.getItem(key + '_host');
+          if (hostRaw) {
+            try {
+              const hData = JSON.parse(hostRaw);
+              // 180度反転
+              game.opponentMallet.targetX = (1.0 - hData.host.x) * COURT_WIDTH;
+              game.opponentMallet.targetY = (1.0 - hData.host.y) * COURT_HEIGHT;
+              game.puck.targetX = (1.0 - hData.puck.x) * COURT_WIDTH;
+              game.puck.targetY = (1.0 - hData.puck.y) * COURT_HEIGHT;
+              game.playerScore = hData.scoreGuest;
+              game.opponentScore = hData.scoreHost;
+              updateScoreDisplay();
+            } catch (e) {}
+          }
+        }
+      }
+
+      // ===================================================================
+      // 🚪 ルーム作成 (ホスト) & 参加 (ゲスト)
+      // ===================================================================
+      function generateRoomCode() {
+        return Math.floor(1000 + Math.random() * 9000).toString();
+      }
+
+      function startHostRoom() {
+        const code = generateRoomCode();
+        game.role = 'HOST';
+        game.roomCode = code;
+
+        // UI切り替え
+        document.getElementById('displayRoomCode').textContent = code;
+        renderQRCode(code);
+        document.getElementById('hostModal').style.display = 'flex';
+
+        if (isFirebaseReady) {
+          game.roomRef = database.ref('rooms/' + code);
+          // ルーム初期状態セット
+          game.roomRef.set({
+            status: 'waiting',
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            hostActive: true
+          });
+
+          // ゲスト接続の監視
+          game.roomRef.child('guestState').on('value', (snap) => {
+            const data = snap.val();
+            if (data && data.x !== undefined) {
+              // ゲストが接続した！
+              if (!game.active) {
+                showToast("対戦相手が参加しました！試合開始！");
+                document.getElementById('hostModal').style.display = 'none';
+                startMatch('GUEST');
+              }
+              // 180度反転してホスト側の奥に配置
+              game.opponentMallet.targetX = (1.0 - data.x) * COURT_WIDTH;
+              game.opponentMallet.targetY = (1.0 - data.y) * COURT_HEIGHT;
             }
           });
         } else {
-          alert('部屋が見つかりません。IDを確認してください。');
-          statusText.textContent = '通信準備OK';
+          // Firebase未構成時のシミュレーション待機
+          showToast("シミュレーション待機中（別タブでこの部屋に参加可能）");
+          const simKey = 'airhockey_sim_room_' + code;
+          const pollInterval = setInterval(() => {
+            if (localStorage.getItem(simKey + '_guest')) {
+              clearInterval(pollInterval);
+              document.getElementById('hostModal').style.display = 'none';
+              showToast("別タブから相手が参加しました！");
+              startMatch('GUEST');
+            }
+          }, 600);
+        }
+      }
+
+      function joinGuestRoom(code) {
+        if (!code || code.length !== 4) {
+          showToast("4桁の部屋番号を入力してください");
+          return;
+        }
+
+        game.role = 'GUEST';
+        game.roomCode = code;
+
+        if (isFirebaseReady) {
+          game.roomRef = database.ref('rooms/' + code);
+          game.roomRef.once('value').then((snap) => {
+            if (!snap.exists()) {
+              showToast("部屋が見つかりませんでした");
+              return;
+            }
+
+            // 参加通知
+            game.roomRef.child('guestState').set({
+              joined: true,
+              timestamp: Date.now()
+            });
+
+            // ホスト状態の受信
+            game.roomRef.child('hostState').on('value', (snap) => {
+              const hData = snap.val();
+              if (hData) {
+                // 180度反転
+                game.opponentMallet.targetX = (1.0 - hData.x) * COURT_WIDTH;
+                game.opponentMallet.targetY = (1.0 - hData.y) * COURT_HEIGHT;
+
+                game.puck.targetX = (1.0 - hData.puckX) * COURT_WIDTH;
+                game.puck.targetY = (1.0 - hData.puckY) * COURT_HEIGHT;
+
+                game.playerScore = hData.scoreGuest || 0;
+                game.opponentScore = hData.scoreHost || 0;
+                updateScoreDisplay();
+              }
+            });
+
+            showToast("部屋に参加しました！試合開始！");
+            startMatch('HOST');
+          }).catch((err) => {
+            showToast("接続エラー: " + err.message);
+          });
+        } else {
+          // ローカルシミュレーション参加
+          showToast("シミュレーション部屋に参加しました！");
+          const simKey = 'airhockey_sim_room_' + code;
+          localStorage.setItem(simKey + '_guest', JSON.stringify({ joined: true, x: 0.5, y: 0.85, ts: Date.now() }));
+          startMatch('HOST');
+        }
+      }
+
+      function startSoloAI() {
+        game.role = 'SOLO_AI';
+        game.roomCode = null;
+        game.roomRef = null;
+        startMatch('AI');
+      }
+
+      function startMatch(opponentType) {
+        game.playerScore = 0;
+        game.opponentScore = 0;
+        updateScoreDisplay();
+
+        game.playerMallet.x = COURT_WIDTH / 2;
+        game.playerMallet.y = COURT_HEIGHT * 0.82;
+        game.targetPlayerPos.x = COURT_WIDTH / 2;
+        game.targetPlayerPos.y = COURT_HEIGHT * 0.82;
+
+        game.opponentMallet.x = COURT_WIDTH / 2;
+        game.opponentMallet.y = COURT_HEIGHT * 0.18;
+        game.opponentMallet.targetX = COURT_WIDTH / 2;
+        game.opponentMallet.targetY = COURT_HEIGHT * 0.18;
+
+        resetPuck(1);
+
+        document.getElementById('opponentName').textContent = (opponentType === 'AI') ? 'AI BOT' : '相手';
+        document.getElementById('playerName').textContent = 'あなた';
+
+        document.getElementById('lobbyView').style.display = 'none';
+        document.getElementById('gameView').style.display = 'flex';
+        document.getElementById('gameOverModal').style.display = 'none';
+
+        game.active = true;
+
+        const banner = document.getElementById('courtBanner');
+        banner.textContent = 'READY... GO!';
+        banner.style.borderColor = 'var(--player-cyan)';
+        banner.style.color = '#fff';
+        banner.style.display = 'block';
+
+        setTimeout(() => {
+          banner.style.display = 'none';
+        }, 1200);
+      }
+
+      function leaveGame() {
+        game.active = false;
+        if (game.roomRef && isFirebaseReady) {
+          game.roomRef.off();
+        }
+        document.getElementById('gameView').style.display = 'none';
+        document.getElementById('lobbyView').style.display = 'flex';
+        document.getElementById('gameOverModal').style.display = 'none';
+      }
+
+      // ===================================================================
+      // 📱 QR コード描画
+      // ===================================================================
+      function renderQRCode(roomCode) {
+        const container = document.getElementById('qrContainer');
+        container.innerHTML = '';
+
+        const joinUrl = window.location.origin + window.location.pathname + '?room=' + roomCode;
+
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(container, {
+            text: joinUrl,
+            width: 170,
+            height: 170,
+            colorDark: '#070a12',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          // フォールバック: Google Charts API / QRServer API画像
+          const img = document.createElement('img');
+          img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=' + encodeURIComponent(joinUrl);
+          img.alt = 'QR Code';
+          img.style.width = '170px';
+          img.style.height = '170px';
+          container.appendChild(img);
+        }
+      }
+
+      // ===================================================================
+      // 🔔 トースト通知
+      // ===================================================================
+      function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2600);
+      }
+
+      // ===================================================================
+      // 📲 PWA (Progressive Web App) サポート
+      // ===================================================================
+      let deferredPrompt = null;
+      const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btn = document.getElementById('pwaInstallBtn');
+        btn.style.display = 'inline-flex';
+      });
+
+      document.getElementById('pwaInstallBtn').addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            showToast("アプリがインストールされました！");
+            document.getElementById('pwaBar').style.display = 'none';
+          }
+          deferredPrompt = null;
+        } else if (isIOS) {
+          document.getElementById('iosPwaModal').style.display = 'flex';
+        } else {
+          showToast("ブラウザのメニューから「ホーム画面に追加」を選択できます");
         }
       });
-    }
 
-    function startGame() {
-      statusIndicator.className = 'w-3 h-3 rounded-full bg-cyan-400 animate-pulse';
-      statusText.textContent = '対戦中（リアルタイム同期中）';
-
-      lobbyPanel.classList.add('hidden');
-      gamePanel.classList.remove('hidden');
-
-      if (isHost) {
-        gameState.isPlaying = true;
-        roomRef.child('state').update({ isPlaying: true });
-        startHostLoop();
+      // スタンドアロン表示（インストール済み）の判定
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        document.getElementById('pwaBar').style.display = 'none';
       }
 
-      // 全員共通でスムーズ描画ループを起動
-      requestAnimationFrame(renderLoop);
-    }
+      // ===================================================================
+      // 🎛️ UI イベントリスナーの結線
+      // ===================================================================
+      document.getElementById('soundToggleBtn').addEventListener('click', () => {
+        const isEnabled = sound.toggle();
+        document.getElementById('soundIcon').textContent = isEnabled ? '🔊' : '🔇';
+        showToast(isEnabled ? 'サウンド ON' : 'サウンド OFF');
+      });
 
-    // タッチ / マウス移動処理（陣地制限）
-    function handleMove(e) {
-      if (!roomRef) return;
+      document.getElementById('createRoomBtn').addEventListener('click', () => {
+        sound.initContext();
+        startHostRoom();
+      });
 
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      document.getElementById('joinRoomBtn').addEventListener('click', () => {
+        sound.initContext();
+        const code = document.getElementById('roomCodeInput').value.trim();
+        joinGuestRoom(code);
+      });
 
-      const scaleX = GAME_WIDTH / rect.width;
-      const scaleY = GAME_HEIGHT / rect.height;
-
-      let canvasX = (clientX - rect.left) * scaleX;
-      let canvasY = (clientY - rect.top) * scaleY;
-
-      // 共通制限：X軸（左右の壁）
-      let clampedX = Math.max(PADDLE_RADIUS, Math.min(GAME_WIDTH - PADDLE_RADIUS, canvasX));
-
-      // 陣地制限：Y軸（自分の手前側半分のみ）
-      let minY = GAME_HEIGHT / 2 + PADDLE_RADIUS;
-      let maxY = GAME_HEIGHT - PADDLE_RADIUS;
-      let clampedY = Math.max(minY, Math.min(maxY, canvasY));
-
-      targetMyPaddle = { x: clampedX, y: clampedY };
-
-      if (isHost) {
-        gameState.hostPaddle = { x: clampedX, y: clampedY };
-      } else {
-        roomRef.child('guestPaddleLocal').set({ x: clampedX, y: clampedY });
-      }
-    }
-
-    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); }, { passive: false });
-    canvas.addEventListener('mousemove', handleMove);
-
-    // 【ホスト限定】物理計算＆サーバー同期ループ
-    function startHostLoop() {
-      setInterval(() => {
-        if (!isHost || !gameState.isPlaying) return;
-
-        // ゲストのマレット位置を補間反映
-        gameState.guestPaddle.x += (targetOppPaddle.x - gameState.guestPaddle.x) * 0.4;
-        gameState.guestPaddle.y += (targetOppPaddle.y - gameState.guestPaddle.y) * 0.4;
-
-        updatePhysics();
-
-        // サーバーへ状態送信
-        roomRef.child('state').set(gameState);
-      }, 1000 / 40);
-    }
-
-    function updatePhysics() {
-      let p = gameState.puck;
-      p.x += p.vx;
-      p.y += p.vy;
-
-      p.vx *= 0.988;
-      p.vy *= 0.988;
-
-      const goalLeft = (GAME_WIDTH - GOAL_WIDTH) / 2;
-      const goalRight = (GAME_WIDTH + GOAL_WIDTH) / 2;
-
-      // 壁反射
-      if (p.x - PUCK_RADIUS < 0) { p.x = PUCK_RADIUS; p.vx *= -1; }
-      if (p.x + PUCK_RADIUS > GAME_WIDTH) { p.x = GAME_WIDTH - PUCK_RADIUS; p.vx *= -1; }
-
-      // ゴール判定（上：ゲストゴール -> ホストの得点）
-      if (p.y - PUCK_RADIUS < 0) {
-        if (p.x > goalLeft && p.x < goalRight) {
-          gameState.scoreHost++;
-          checkGoal(true);
-          return;
-        } else {
-          p.y = PUCK_RADIUS; p.vy *= -1;
+      document.getElementById('roomCodeInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          const code = document.getElementById('roomCodeInput').value.trim();
+          joinGuestRoom(code);
         }
-      }
+      });
 
-      // ゴール判定（下：ホストゴール -> ゲストの得点）
-      if (p.y + PUCK_RADIUS > GAME_HEIGHT) {
-        if (p.x > goalLeft && p.x < goalRight) {
-          gameState.scoreGuest++;
-          checkGoal(false);
-          return;
+      document.getElementById('aiNormalBtn').addEventListener('click', () => {
+        sound.initContext();
+        startSoloAI();
+      });
+
+      document.getElementById('closeHostModalBtn').addEventListener('click', () => {
+        document.getElementById('hostModal').style.display = 'none';
+      });
+
+      document.getElementById('copyRoomLinkBtn').addEventListener('click', () => {
+        const code = game.roomCode;
+        const joinUrl = window.location.origin + window.location.pathname + '?room=' + code;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(joinUrl).then(() => {
+            showToast("招待URLをコピーしました！");
+          });
         } else {
-          p.y = GAME_HEIGHT - PUCK_RADIUS; p.vy *= -1;
+          prompt("招待URLです。コピーして相手に送ってください:", joinUrl);
         }
-      }
+      });
 
-      checkPaddleCollision(gameState.hostPaddle);
-      checkPaddleCollision(gameState.guestPaddle);
-    }
+      document.getElementById('leaveGameBtn').addEventListener('click', () => {
+        if (confirm("試合を終了してロビーに戻りますか？")) {
+          leaveGame();
+        }
+      });
 
-    function checkPaddleCollision(paddle) {
-      let p = gameState.puck;
-      let dx = p.x - paddle.x;
-      let dy = p.y - paddle.y;
-      let dist = Math.sqrt(dx * dx + dy * dy);
-      let minDist = PADDLE_RADIUS + PUCK_RADIUS;
+      document.getElementById('rematchBtn').addEventListener('click', () => {
+        document.getElementById('gameOverModal').style.display = 'none';
+        if (game.role === 'SOLO_AI') {
+          startSoloAI();
+        } else {
+          startMatch(game.role === 'HOST' ? 'GUEST' : 'HOST');
+        }
+      });
 
-      if (dist < minDist) {
-        let angle = Math.atan2(dy, dx);
-        let overlap = minDist - dist;
+      document.getElementById('backToLobbyFromModalBtn').addEventListener('click', () => {
+        leaveGame();
+      });
 
-        p.x += Math.cos(angle) * overlap;
-        p.y += Math.sin(angle) * overlap;
+      // Settings Modal
+      const settingsModal = document.getElementById('settingsModal');
+      document.getElementById('settingsBtn').addEventListener('click', () => {
+        document.getElementById('customDbUrlInput').value = activeFirebaseConfig.databaseURL || '';
+        settingsModal.style.display = 'flex';
+      });
 
-        let speed = Math.max(9, Math.sqrt(p.vx * p.vx + p.vy * p.vy) * 1.15);
-        speed = Math.min(speed, 20);
+      document.getElementById('closeSettingsModalBtn').addEventListener('click', () => {
+        settingsModal.style.display = 'none';
+      });
 
-        p.vx = Math.cos(angle) * speed;
-        p.vy = Math.sin(angle) * speed;
-      }
-    }
+      document.getElementById('saveConfigBtn').addEventListener('click', () => {
+        const val = document.getElementById('customDbUrlInput').value.trim();
+        if (val) {
+          localStorage.setItem('air_hockey_firebase_config', val);
+          showToast("設定を保存しました。リロードします...");
+          setTimeout(() => window.location.reload(), 1000);
+        }
+      });
 
-    function checkGoal(isHostScored) {
-      updateScores();
-      if (gameState.scoreHost >= 7 || gameState.scoreGuest >= 7) {
-        gameState.isPlaying = false;
-        let winner = gameState.scoreHost >= 7 ? 'host' : 'guest';
-        gameState.gameOver = true;
-        gameState.winner = winner;
-        showGameOver(winner);
-        roomRef.child('state').set(gameState);
-      } else {
-        resetPuck(isHostScored ? -1 : 1);
-      }
-    }
+      document.getElementById('resetConfigBtn').addEventListener('click', () => {
+        localStorage.removeItem('air_hockey_firebase_config');
+        showToast("設定を初期化しました。リロードします...");
+        setTimeout(() => window.location.reload(), 1000);
+      });
 
-    function resetPuck(direction) {
-      gameState.puck = {
-        x: GAME_WIDTH / 2,
-        y: GAME_HEIGHT / 2,
-        vx: (Math.random() - 0.5) * 4,
-        vy: direction * 6
-      };
-    }
+      document.getElementById('downloadHtmlBtn').addEventListener('click', () => {
+        const htmlContent = document.documentElement.outerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'index.html';
+        a.click();
+        showToast("index.html をダウンロードしました！");
+      });
 
-    function resetGame() {
-      gameState.scoreHost = 0;
-      gameState.scoreGuest = 0;
-      gameState.gameOver = false;
-      gameState.winner = null;
-      gameState.hostPaddle = { ...DEFAULT_MY_PADDLE };
-      gameState.guestPaddle = { ...DEFAULT_OPP_PADDLE };
-      targetMyPaddle = { ...DEFAULT_MY_PADDLE };
-      targetOppPaddle = { ...DEFAULT_OPP_PADDLE };
-      updateScores();
-      resetPuck(1);
-      hideGameOver();
-    }
+      document.getElementById('closeIosModalBtn').addEventListener('click', () => {
+        document.getElementById('iosPwaModal').style.display = 'none';
+      });
+      document.getElementById('closeIosModalBtn2').addEventListener('click', () => {
+        document.getElementById('iosPwaModal').style.display = 'none';
+      });
 
-    function updateScores() {
-      if (isHost) {
-        scoreHostEl.textContent = gameState.scoreHost;
-        scoreGuestEl.textContent = gameState.scoreGuest;
-      } else {
-        scoreHostEl.textContent = gameState.scoreGuest;
-        scoreGuestEl.textContent = gameState.scoreHost;
-      }
-    }
-
-    // 【全員共通】滑らか描画（自分の視点基準）
-    function renderLoop() {
-      if (isHost) {
-        targetOppPaddle = gameState.guestPaddle;
-        targetPuck = gameState.puck;
-      }
-
-      // 描画位置の補間（LERP）
-      drawMyPaddle.x += (targetMyPaddle.x - drawMyPaddle.x) * 0.35;
-      drawMyPaddle.y += (targetMyPaddle.y - drawMyPaddle.y) * 0.35;
-      drawOppPaddle.x += (targetOppPaddle.x - drawOppPaddle.x) * 0.35;
-      drawOppPaddle.y += (targetOppPaddle.y - drawOppPaddle.y) * 0.35;
-      drawPuck.x += (targetPuck.x - drawPuck.x) * 0.35;
-      drawPuck.y += (targetPuck.y - drawPuck.y) * 0.35;
-
-      drawCanvas();
-      requestAnimationFrame(renderLoop);
-    }
-
-    function drawCanvas() {
-      ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-      // コートライン
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 4;
-
-      ctx.beginPath();
-      ctx.moveTo(0, GAME_HEIGHT / 2);
-      ctx.lineTo(GAME_WIDTH, GAME_HEIGHT / 2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(GAME_WIDTH / 2, GAME_HEIGHT / 2, 50, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // ゴール枠
-      const goalLeft = (GAME_WIDTH - GOAL_WIDTH) / 2;
-      ctx.strokeStyle = '#f43f5e';
-      ctx.strokeRect(goalLeft, 0, GOAL_WIDTH, 8);
-      ctx.strokeStyle = '#06b6d4';
-      ctx.strokeRect(goalLeft, GAME_HEIGHT - 8, GOAL_WIDTH, 8);
-
-      // パック（黄色）
-      ctx.beginPath();
-      ctx.arc(drawPuck.x, drawPuck.y, PUCK_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fill();
-      ctx.strokeStyle = '#d97706';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // 自分（手前・水色）
-      ctx.beginPath();
-      ctx.arc(drawMyPaddle.x, drawMyPaddle.y, PADDLE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = '#06b6d4';
-      ctx.fill();
-      ctx.strokeStyle = '#0891b2';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-
-      // 相手（奥・赤色）
-      ctx.beginPath();
-      ctx.arc(drawOppPaddle.x, drawOppPaddle.y, PADDLE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = '#f43f5e';
-      ctx.fill();
-      ctx.strokeStyle = '#e11d48';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-    }
-
-    function invertPos(pos) {
-      return { x: GAME_WIDTH - pos.x, y: GAME_HEIGHT - pos.y };
-    }
-
-    function showGameOver(winner) {
-      let isWinner = (isHost && winner === 'host') || (!isHost && winner === 'guest');
-      overlayTitle.textContent = isWinner ? '🎉 勝利！' : '😢 敗北...';
-      overlayTitle.className = `text-3xl font-black mb-2 ${isWinner ? 'text-amber-400' : 'text-rose-400'}`;
-      overlayMsg.textContent = isWinner ? '見事な勝負でした！おめでとうございます！' : '次は勝てるように頑張りましょう！';
-      gameOverlay.classList.remove('hidden');
-    }
-
-    function hideGameOver() {
-      gameOverlay.classList.add('hidden');
-    }
-
-    btnRestart.addEventListener('click', () => {
-      if (isHost) {
-        resetGame();
-        gameState.isPlaying = true;
-        roomRef.child('state').set(gameState);
-      } else {
-        hideGameOver();
-      }
-    });
-  </script>
-</body>
+      // URLクエリパラメータ(?room=XXXX)で直接開かれた場合の自動参加
+      window.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const queryRoom = params.get('room');
+        if (queryRoom && queryRoom.length === 4) {
+          document.getElementById('roomCodeInput').value = queryRoom;
+          showToast(`部屋番号 ${queryRoom} が入力されました`);
+        }
+      });
+    </script>
+  </body>
 </html>
