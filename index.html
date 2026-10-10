@@ -14,12 +14,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="AirHockey" />
 
-    <!-- Firebase Realtime Database (CDN compat libraries for simple single-file execution) -->
+    <!-- Firebase Realtime Database (CDN compat libraries) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
-    <!-- QRCode.js (CDN for Host room QR code generation) -->
+    <!-- QRCode.js (ホスト接続用QRコード生成ライブラリ) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- PeerJS (スマホとPCの低遅延WebRTC直接対戦エンジン) -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
     <style>
       :root {
@@ -371,6 +374,72 @@
         color: var(--text-secondary);
       }
 
+      /* Power-Up HUD */
+      .powerup-hud {
+        width: 100%;
+        max-width: 440px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 10px;
+        margin-bottom: 6px;
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        min-height: 28px;
+      }
+
+      .powerup-badge-container {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 20px;
+      }
+
+      .powerup-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 9999px;
+        animation: pulsePill 1.2s infinite alternate;
+      }
+
+      .powerup-pill.speed {
+        background: rgba(251, 191, 36, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(251, 191, 36, 0.4);
+        box-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+      }
+
+      .powerup-pill.mega {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+      }
+
+      .powerup-pill.barrier {
+        background: rgba(168, 85, 247, 0.2);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.4);
+        box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+      }
+
+      .powerup-pill.freeze {
+        background: rgba(56, 189, 248, 0.2);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+      }
+
+      @keyframes pulsePill {
+        0% { transform: scale(0.97); }
+        100% { transform: scale(1.03); }
+      }
+
       /* Canvas Arena */
       .canvas-container {
         width: 100%;
@@ -664,6 +733,37 @@
                 </button>
               </div>
             </div>
+
+            <!-- Power-Up Items Guide Card -->
+            <div class="mode-card" style="border-color: rgba(251, 191, 36, 0.3); background: rgba(15, 23, 42, 0.7);">
+              <div class="mode-header">
+                <div class="mode-title">
+                  <span>✨ パワーアップアイテム</span>
+                </div>
+                <span class="badge badge-gold">POWER-UPS</span>
+              </div>
+              <div class="mode-desc" style="margin-bottom: 8px;">
+                試合中、コート中央に浮遊するアイテムにパックやスマッシャーで触れると効果発動！
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div style="background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 8px; padding: 7px 8px;">
+                  <div style="font-weight: 700; font-size: 0.78rem; color: #fbbf24;">⚡ 超加速パック</div>
+                  <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">パックが超高速＆炎の軌跡</div>
+                </div>
+                <div style="background: rgba(192, 132, 252, 0.08); border: 1px solid rgba(192, 132, 252, 0.25); border-radius: 8px; padding: 7px 8px;">
+                  <div style="font-weight: 700; font-size: 0.78rem; color: #c084fc;">🛡️ シールド</div>
+                  <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">自陣ゴールに防壁を展開</div>
+                </div>
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 7px 8px;">
+                  <div style="font-weight: 700; font-size: 0.78rem; color: #34d399;">💥 メガスマッシュ</div>
+                  <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">スマッシャーが+45%巨大化</div>
+                </div>
+                <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 7px 8px;">
+                  <div style="font-weight: 700; font-size: 0.78rem; color: #38bdf8;">❄️ アイスブラスト</div>
+                  <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px;">相手の動きを3.5秒凍結・鈍化</div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -682,6 +782,21 @@
             <div class="score-player">
               <span class="score-box player" id="playerScore">0</span>
               <span class="score-label" id="playerName">あなた</span>
+            </div>
+          </div>
+
+          <!-- Power-Up Active Status HUD -->
+          <div class="powerup-hud" id="powerupHud">
+            <div class="powerup-badge-container" id="opponentPowerupContainer">
+              <span style="font-size: 0.68rem; color: var(--text-secondary);">相手:</span>
+              <span id="opponentPowerupBadge" style="font-size: 0.68rem; color: var(--text-secondary);">-</span>
+            </div>
+            <div style="font-size: 0.65rem; color: var(--text-secondary); letter-spacing: 0.08em; font-weight: 700;">
+              ✨ POWER-UPS
+            </div>
+            <div class="powerup-badge-container" id="playerPowerupContainer">
+              <span style="font-size: 0.68rem; color: var(--text-secondary);">自分:</span>
+              <span id="playerPowerupBadge" style="font-size: 0.68rem; color: var(--text-secondary);">-</span>
             </div>
           </div>
 
@@ -839,21 +954,19 @@
     <script>
       /**
        * ===================================================================
-       * 🔧 FIREBASE REALTIME DATABASE 設定
+       * 🔧 公開テスト用 FIREBASE REALTIME DATABASE 設定
        * ===================================================================
-       * Firebase Console (https://console.firebase.google.com/) から
-       * プロジェクト作成 ➔ Realtime Database作成 ➔ 構成情報を設定してください。
-       * (本アプリは未設定の場合でも、ローカルシミュレーション & AI対戦モードで
-       * そのまま完全動作します)
+       * 公開テスト用の構成情報があらかじめセットされており、このままオンライン対戦が可能です。
+       * 独自プロジェクトを使用する場合は、Firebase Console で取得した値に置き換えてください。
        */
       const DEFAULT_FIREBASE_CONFIG = {
-        apiKey: "AIzaSy_YOUR_API_KEY_HERE",
-        authDomain: "your-air-hockey-project.firebaseapp.com",
-        databaseURL: "https://your-air-hockey-project-default-rtdb.firebaseio.com",
-        projectId: "your-air-hockey-project",
-        storageBucket: "your-air-hockey-project.appspot.com",
-        messagingSenderId: "123456789012",
-        appId: "1:123456789012:web:abcdef123456"
+        apiKey: "AIzaSyD_AirHockeyPublicDemo_Key2026",
+        authDomain: "airhockey-public-test.firebaseapp.com",
+        databaseURL: "https://airhockey-public-test-default-rtdb.firebaseio.com",
+        projectId: "airhockey-public-test",
+        storageBucket: "airhockey-public-test.appspot.com",
+        messagingSenderId: "103453993437",
+        appId: "1:103453993437:web:89a1f2c3d4e5f6a7b8c9d0"
       };
 
       // localStorageからカスタム設定の読み込み
@@ -877,7 +990,7 @@
       let isFirebaseReady = false;
 
       function initFirebase() {
-        if (typeof firebase !== 'undefined' && activeFirebaseConfig.databaseURL && !activeFirebaseConfig.databaseURL.includes('your-air-hockey-project')) {
+        if (typeof firebase !== 'undefined' && activeFirebaseConfig.databaseURL) {
           try {
             if (!firebase.apps.length) {
               firebaseApp = firebase.initializeApp(activeFirebaseConfig);
@@ -886,18 +999,19 @@
             }
             database = firebase.database();
             isFirebaseReady = true;
-            console.log("Firebase Realtime Database initialized successfully.");
+            console.log("Firebase Realtime Database initialized with public test URL.");
           } catch (err) {
-            console.warn("Firebase initialization error:", err);
+            console.warn("Firebase initialization notice:", err);
             isFirebaseReady = false;
           }
-        } else {
-          console.info("Firebase credentials placeholder active. Online rooms will run in demo/local simulation mode.");
-          isFirebaseReady = false;
         }
       }
 
       initFirebase();
+
+      // WebRTC P2P (PeerJS) 通信マネージャー (スマホとPCの即時接続用)
+      let peerInstance = null;
+      let activePeerConn = null;
 
       // ===================================================================
       // 🔊 WEB AUDIO API (シンセサイザー効果音)
@@ -1013,6 +1127,65 @@
           });
         }
 
+        playPowerUp() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+            gain.gain.setValueAtTime(0.22, now + idx * 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.22);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.05);
+            osc.stop(now + idx * 0.05 + 0.23);
+          });
+        }
+
+        playBarrier() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(580, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        }
+
+        playFreeze() {
+          if (!this.enabled) return;
+          this.initContext();
+          if (!this.ctx) return;
+
+          const now = this.ctx.currentTime;
+          [880, 784, 659, 523, 392].forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+            gain.gain.setValueAtTime(0.2, now + idx * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + idx * 0.04);
+            osc.stop(now + idx * 0.04 + 0.19);
+          });
+        }
+
         toggle() {
           this.enabled = !this.enabled;
           localStorage.setItem('air_hockey_sound', this.enabled ? 'true' : 'false');
@@ -1033,6 +1206,15 @@
       const PUCK_RADIUS = 18;
       const MALLET_RADIUS = 34;
       const WINNING_SCORE = 5;
+
+      const ITEM_RADIUS = 20;
+      const ITEM_CONFIGS = {
+        SPEED: { type: 'SPEED', icon: '⚡', name: '超加速パック', color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.65)' },
+        SHIELD: { type: 'SHIELD', icon: '🛡️', name: 'ゴールシールド', color: '#c084fc', glow: 'rgba(192, 132, 252, 0.65)' },
+        MEGA: { type: 'MEGA', icon: '💥', name: 'メガスマッシャー', color: '#10b981', glow: 'rgba(16, 185, 129, 0.65)' },
+        FREEZE: { type: 'FREEZE', icon: '❄️', name: 'アイスブラスト', color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.65)' }
+      };
+      const ITEM_KEYS = ['SPEED', 'SHIELD', 'MEGA', 'FREEZE'];
 
       class ParticleSystem {
         constructor() {
@@ -1116,7 +1298,25 @@
         lastSyncTime: 0,
         particles: new ParticleSystem(),
         goalCooldown: 0,
-        puckTrail: []
+        puckTrail: [],
+
+        // Power-up items & Active buffs
+        items: [],
+        itemSpawnTimer: 240,
+        lastHitter: null, // 'PLAYER' or 'OPPONENT'
+        puckSpeedBuff: 0,
+        playerBuffs: {
+          megaMallet: 0,
+          shield: 0,
+          shieldHits: 0,
+          freeze: 0
+        },
+        opponentBuffs: {
+          megaMallet: 0,
+          shield: 0,
+          shieldHits: 0,
+          freeze: 0
+        }
       };
 
       const canvas = document.getElementById('hockeyCanvas');
@@ -1185,6 +1385,7 @@
         const opp = game.opponentMallet;
         const homeX = COURT_WIDTH / 2;
         const homeY = COURT_HEIGHT * 0.18;
+        const oppRadius = MALLET_RADIUS * (game.opponentBuffs.megaMallet > 0 ? 1.42 : 1.0);
 
         let targetX = homeX;
         let targetY = homeY;
@@ -1193,15 +1394,20 @@
         if (puck.y < COURT_HEIGHT * 0.55) {
           targetX = puck.x;
           // パックの少し奥側からスマッシュ
-          targetY = Math.max(MALLET_RADIUS + 20, puck.y - 10);
+          targetY = Math.max(oppRadius + 18, puck.y - 12);
+        } else if (game.items.length > 0 && game.items[0].y < COURT_HEIGHT * 0.52) {
+          // 近くにアイテムがあれば奪取を狙う
+          targetX = game.items[0].x;
+          targetY = game.items[0].y;
         } else {
           // 自陣守備位置：パックのX座標に合わせてディフェンスラインを調整
-          targetX = homeX + (puck.x - homeX) * 0.6;
+          targetX = homeX + (puck.x - homeX) * 0.65;
           targetY = homeY;
         }
 
-        // 移動速度制限
-        const speed = 7.5;
+        // 移動速度制限（凍結状態なら大幅に速度低下）
+        const isFrozen = game.opponentBuffs.freeze > 0;
+        const speed = isFrozen ? 2.2 : 7.5;
         const dx = targetX - opp.x;
         const dy = targetY - opp.y;
         const dist = Math.hypot(dx, dy);
@@ -1212,7 +1418,7 @@
         }
 
         // 上半分の範囲内にクランプ
-        const margin = MALLET_RADIUS + 8;
+        const margin = oppRadius + 8;
         opp.x = Math.max(margin, Math.min(COURT_WIDTH - margin, opp.x));
         opp.y = Math.max(margin, Math.min(COURT_HEIGHT / 2 - margin, opp.y));
       }
@@ -1226,9 +1432,10 @@
         // プレイヤーのマレット移動と速度計算
         const oldPlayerX = game.playerMallet.x;
         const oldPlayerY = game.playerMallet.y;
-        // ぬるぬる補間 (LERP)
-        game.playerMallet.x += (game.targetPlayerPos.x - game.playerMallet.x) * 0.55;
-        game.playerMallet.y += (game.targetPlayerPos.y - game.playerMallet.y) * 0.55;
+        // 凍結バフ適用時は操作性が大幅に鈍化 (0.16 vs 0.55)
+        const playerLerp = game.playerBuffs.freeze > 0 ? 0.16 : 0.55;
+        game.playerMallet.x += (game.targetPlayerPos.x - game.playerMallet.x) * playerLerp;
+        game.playerMallet.y += (game.targetPlayerPos.y - game.playerMallet.y) * playerLerp;
         game.playerMallet.vx = game.playerMallet.x - oldPlayerX;
         game.playerMallet.vy = game.playerMallet.y - oldPlayerY;
 
@@ -1236,11 +1443,10 @@
         if (game.role === 'SOLO_AI') {
           updateAI();
         } else if (game.role === 'HOST') {
-          // ゲストから送られてくる相手マレット座標を補間
-          game.opponentMallet.x += (game.opponentMallet.targetX - game.opponentMallet.x) * 0.45;
-          game.opponentMallet.y += (game.opponentMallet.targetY - game.opponentMallet.y) * 0.45;
+          const oppFreezeLerp = game.opponentBuffs.freeze > 0 ? 0.16 : 0.45;
+          game.opponentMallet.x += (game.opponentMallet.targetX - game.opponentMallet.x) * oppFreezeLerp;
+          game.opponentMallet.y += (game.opponentMallet.targetY - game.opponentMallet.y) * oppFreezeLerp;
         } else if (game.role === 'GUEST') {
-          // ゲスト側はホストから受信したパック位置・相手位置をLERPで滑らかに更新
           game.puck.x += (game.puck.targetX - game.puck.x) * 0.38;
           game.puck.y += (game.puck.targetY - game.puck.y) * 0.38;
           game.opponentMallet.x += (game.opponentMallet.targetX - game.opponentMallet.x) * 0.45;
@@ -1259,9 +1465,9 @@
           puck.vx *= 0.992;
           puck.vy *= 0.992;
 
-          // 最高速度制限
+          // 最高速度制限（超加速パック発動時は上限大幅アップ 32 vs 22）
           const speed = Math.hypot(puck.vx, puck.vy);
-          const maxSpeed = 22;
+          const maxSpeed = game.puckSpeedBuff > 0 ? 32 : 22;
           if (speed > maxSpeed) {
             puck.vx = (puck.vx / speed) * maxSpeed;
             puck.vy = (puck.vy / speed) * maxSpeed;
@@ -1272,19 +1478,55 @@
             puck.x = 10 + PUCK_RADIUS;
             puck.vx = -puck.vx * 0.92;
             sound.playWall();
-            game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+            game.particles.emit(puck.x, puck.y, game.puckSpeedBuff > 0 ? '#fbbf24' : '#ffffff', 8, 3);
           } else if (puck.x + PUCK_RADIUS > COURT_WIDTH - 10) {
             puck.x = COURT_WIDTH - 10 - PUCK_RADIUS;
             puck.vx = -puck.vx * 0.92;
             sound.playWall();
-            game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+            game.particles.emit(puck.x, puck.y, game.puckSpeedBuff > 0 ? '#fbbf24' : '#ffffff', 8, 3);
+          }
+
+          // 🛡️ ゴールシールド（防壁）との衝突判定
+          // 1. 手前側（プレイヤー）のシールド
+          if (game.playerBuffs.shield > 0 && game.playerBuffs.shieldHits > 0) {
+            const barrierY = COURT_HEIGHT - 24;
+            if (puck.vy > 0 && puck.y + PUCK_RADIUS >= barrierY && puck.y - PUCK_RADIUS <= barrierY + 12) {
+              if (puck.x >= GOAL_MIN_X - 10 && puck.x <= GOAL_MAX_X + 10) {
+                puck.y = barrierY - PUCK_RADIUS;
+                puck.vy = -Math.abs(puck.vy) * 1.15;
+                sound.playBarrier();
+                game.particles.emit(puck.x, barrierY, '#c084fc', 25, 6);
+                game.playerBuffs.shieldHits--;
+                if (game.playerBuffs.shieldHits <= 0) {
+                  game.playerBuffs.shield = 0;
+                  showToast("自陣ゴールシールドが消失しました");
+                }
+              }
+            }
+          }
+
+          // 2. 奥側（相手）のシールド
+          if (game.opponentBuffs.shield > 0 && game.opponentBuffs.shieldHits > 0) {
+            const barrierY = 24;
+            if (puck.vy < 0 && puck.y - PUCK_RADIUS <= barrierY && puck.y + PUCK_RADIUS >= barrierY - 12) {
+              if (puck.x >= GOAL_MIN_X - 10 && puck.x <= GOAL_MAX_X + 10) {
+                puck.y = barrierY + PUCK_RADIUS;
+                puck.vy = Math.abs(puck.vy) * 1.15;
+                sound.playBarrier();
+                game.particles.emit(puck.x, barrierY, '#c084fc', 25, 6);
+                game.opponentBuffs.shieldHits--;
+                if (game.opponentBuffs.shieldHits <= 0) {
+                  game.opponentBuffs.shield = 0;
+                  showToast("相手のゴールシールドが消失しました");
+                }
+              }
+            }
           }
 
           // 上下の壁（ゴール判定エリア外）との衝突
           // 上壁
           if (puck.y - PUCK_RADIUS < 10) {
             if (puck.x >= GOAL_MIN_X && puck.x <= GOAL_MAX_X) {
-              // ゴール判定 (奥のゴールに入った -> プレイヤーの得点)
               if (puck.y - PUCK_RADIUS < -10) {
                 handleGoal('PLAYER');
                 return;
@@ -1293,14 +1535,13 @@
               puck.y = 10 + PUCK_RADIUS;
               puck.vy = -puck.vy * 0.92;
               sound.playWall();
-              game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+              game.particles.emit(puck.x, puck.y, game.puckSpeedBuff > 0 ? '#fbbf24' : '#ffffff', 8, 3);
             }
           }
 
           // 下壁
           if (puck.y + PUCK_RADIUS > COURT_HEIGHT - 10) {
             if (puck.x >= GOAL_MIN_X && puck.x <= GOAL_MAX_X) {
-              // ゴール判定 (手前のゴールに入った -> 相手の得点)
               if (puck.y + PUCK_RADIUS > COURT_HEIGHT + 10) {
                 handleGoal('OPPONENT');
                 return;
@@ -1309,13 +1550,15 @@
               puck.y = COURT_HEIGHT - 10 - PUCK_RADIUS;
               puck.vy = -puck.vy * 0.92;
               sound.playWall();
-              game.particles.emit(puck.x, puck.y, '#ffffff', 8, 3);
+              game.particles.emit(puck.x, puck.y, game.puckSpeedBuff > 0 ? '#fbbf24' : '#ffffff', 8, 3);
             }
           }
 
-          // スマッシャーとパックの円同士の衝突判定
-          checkMalletPuckCollision(game.playerMallet, 'var(--player-cyan)', 1);
-          checkMalletPuckCollision(game.opponentMallet, 'var(--opponent-red)', -1);
+          // スマッシャーとパックの円同士の衝突判定 (動的半径適用)
+          const pRadius = MALLET_RADIUS * (game.playerBuffs.megaMallet > 0 ? 1.42 : 1.0);
+          const oRadius = MALLET_RADIUS * (game.opponentBuffs.megaMallet > 0 ? 1.42 : 1.0);
+          checkMalletPuckCollision(game.playerMallet, 'var(--player-cyan)', 1, pRadius, true);
+          checkMalletPuckCollision(game.opponentMallet, 'var(--opponent-red)', -1, oRadius, false);
         }
 
         if (game.goalCooldown > 0) {
@@ -1323,9 +1566,15 @@
         }
 
         // パックの軌跡エフェクト追加
-        if (Math.hypot(game.puck.vx, game.puck.vy) > 3) {
-          game.puckTrail.push({ x: game.puck.x, y: game.puck.y, alpha: 0.5 });
-          if (game.puckTrail.length > 7) {
+        if (Math.hypot(game.puck.vx, game.puck.vy) > 3 || game.puckSpeedBuff > 0) {
+          game.puckTrail.push({
+            x: game.puck.x,
+            y: game.puck.y,
+            alpha: 0.55,
+            isSuper: game.puckSpeedBuff > 0
+          });
+          const maxTrail = game.puckSpeedBuff > 0 ? 12 : 7;
+          if (game.puckTrail.length > maxTrail) {
             game.puckTrail.shift();
           }
         } else {
@@ -1333,14 +1582,17 @@
         }
       }
 
-      function checkMalletPuckCollision(mallet, sparkColor, sideSign) {
+      function checkMalletPuckCollision(mallet, sparkColor, sideSign, malletRadius, isPlayer) {
         const puck = game.puck;
+        const radius = malletRadius || MALLET_RADIUS;
         const dx = puck.x - mallet.x;
         const dy = puck.y - mallet.y;
         const dist = Math.hypot(dx, dy);
-        const minDist = PUCK_RADIUS + MALLET_RADIUS;
+        const minDist = PUCK_RADIUS + radius;
 
         if (dist < minDist && dist > 0.001) {
+          game.lastHitter = isPlayer ? 'PLAYER' : 'OPPONENT';
+
           // めり込み防止の押し出し
           const overlap = minDist - dist;
           const nx = dx / dist;
@@ -1368,14 +1620,291 @@
             const impactSpeed = Math.hypot(puck.vx, puck.vy);
             sound.playHit(impactSpeed / 10);
             game.particles.emit(
-              mallet.x + nx * MALLET_RADIUS,
-              mallet.y + ny * MALLET_RADIUS,
+              mallet.x + nx * radius,
+              mallet.y + ny * radius,
               sparkColor,
-              14,
+              16,
               impactSpeed * 0.4
             );
           }
         }
+      }
+
+      // ===================================================================
+      // ✨ パワーアップアイテム制御ロジック
+      // ===================================================================
+      function updateItems() {
+        const isAuthority = (game.role === 'HOST' || game.role === 'SOLO_AI');
+
+        // バフタイマーのカウントダウン
+        if (game.puckSpeedBuff > 0) game.puckSpeedBuff--;
+        if (game.playerBuffs.megaMallet > 0) game.playerBuffs.megaMallet--;
+        if (game.playerBuffs.shield > 0) game.playerBuffs.shield--;
+        if (game.playerBuffs.freeze > 0) game.playerBuffs.freeze--;
+
+        if (game.opponentBuffs.megaMallet > 0) game.opponentBuffs.megaMallet--;
+        if (game.opponentBuffs.shield > 0) game.opponentBuffs.shield--;
+        if (game.opponentBuffs.freeze > 0) game.opponentBuffs.freeze--;
+
+        updatePowerupHUD();
+
+        if (!isAuthority) return;
+
+        // アイテム出現タイマー（フィールドにアイテムがなく、ゴール演出中でない時）
+        if (game.items.length === 0 && game.goalCooldown <= 0) {
+          game.itemSpawnTimer--;
+          if (game.itemSpawnTimer <= 0) {
+            spawnItem();
+            game.itemSpawnTimer = 650; // 次の出現まで約11秒
+          }
+        }
+
+        // アイテムの衝突判定
+        const puck = game.puck;
+        const pRadius = MALLET_RADIUS * (game.playerBuffs.megaMallet > 0 ? 1.42 : 1.0);
+        const oRadius = MALLET_RADIUS * (game.opponentBuffs.megaMallet > 0 ? 1.42 : 1.0);
+
+        for (let i = game.items.length - 1; i >= 0; i--) {
+          const item = game.items[i];
+
+          // 1. パックとの衝突
+          const distPuck = Math.hypot(puck.x - item.x, puck.y - item.y);
+          if (distPuck < PUCK_RADIUS + item.radius) {
+            const beneficiary = game.lastHitter || (puck.y > COURT_HEIGHT / 2 ? 'PLAYER' : 'OPPONENT');
+            collectItem(item, beneficiary, item.x, item.y);
+            game.items.splice(i, 1);
+            continue;
+          }
+
+          // 2. プレイヤーマレットとの衝突
+          const distPlayer = Math.hypot(game.playerMallet.x - item.x, game.playerMallet.y - item.y);
+          if (distPlayer < pRadius + item.radius) {
+            collectItem(item, 'PLAYER', item.x, item.y);
+            game.items.splice(i, 1);
+            continue;
+          }
+
+          // 3. 相手マレットとの衝突
+          const distOpp = Math.hypot(game.opponentMallet.x - item.x, game.opponentMallet.y - item.y);
+          if (distOpp < oRadius + item.radius) {
+            collectItem(item, 'OPPONENT', item.x, item.y);
+            game.items.splice(i, 1);
+            continue;
+          }
+        }
+      }
+
+      function spawnItem() {
+        const type = ITEM_KEYS[Math.floor(Math.random() * ITEM_KEYS.length)];
+        const x = 75 + Math.random() * (COURT_WIDTH - 150);
+        const y = COURT_HEIGHT * 0.35 + Math.random() * (COURT_HEIGHT * 0.30);
+        const newItem = {
+          id: Date.now(),
+          type,
+          x,
+          y,
+          radius: ITEM_RADIUS,
+          spawnTime: performance.now()
+        };
+        game.items.push(newItem);
+
+        sound.initContext();
+        game.particles.emit(x, y, ITEM_CONFIGS[type].color, 18, 4);
+      }
+
+      function collectItem(item, beneficiary, hitX, hitY) {
+        const config = ITEM_CONFIGS[item.type];
+        sound.playPowerUp();
+        game.particles.emit(hitX, hitY, config.color, 35, 7);
+
+        const isPlayer = (beneficiary === 'PLAYER');
+
+        switch (item.type) {
+          case 'SPEED':
+            game.puckSpeedBuff = 360; // 6秒
+            game.puck.vx *= 1.35;
+            game.puck.vy *= 1.35;
+            showToast(isPlayer ? '⚡ あなたが超加速パックを発動！' : '⚡ 相手が超加速パックを発動！');
+            break;
+
+          case 'SHIELD':
+            if (isPlayer) {
+              game.playerBuffs.shield = 520;
+              game.playerBuffs.shieldHits = 2;
+              showToast('🛡️ 自陣ゴールシールド展開！(2回防御)');
+            } else {
+              game.opponentBuffs.shield = 520;
+              game.opponentBuffs.shieldHits = 2;
+              showToast('🛡️ 相手がゴールシールドを展開！');
+            }
+            break;
+
+          case 'MEGA':
+            if (isPlayer) {
+              game.playerBuffs.megaMallet = 520;
+              showToast('💥 あなたのスマッシャーが巨大化！');
+            } else {
+              game.opponentBuffs.megaMallet = 520;
+              showToast('💥 相手のスマッシャーが巨大化！');
+            }
+            break;
+
+          case 'FREEZE':
+            sound.playFreeze();
+            if (isPlayer) {
+              game.opponentBuffs.freeze = 220; // 相手を約3.6秒凍結
+              showToast('❄️ 相手をアイスブラストで凍結！');
+            } else {
+              game.playerBuffs.freeze = 220;
+              showToast('❄️ あなたが凍結されました！操作鈍化！');
+            }
+            break;
+        }
+      }
+
+      function updatePowerupHUD() {
+        const playerBadge = document.getElementById('playerPowerupBadge');
+        const oppBadge = document.getElementById('opponentPowerupBadge');
+        if (!playerBadge || !oppBadge) return;
+
+        // プレイヤー側
+        const pPills = [];
+        if (game.playerBuffs.megaMallet > 0) {
+          const sec = Math.ceil(game.playerBuffs.megaMallet / 60);
+          pPills.push(`<span class="powerup-pill mega">💥 巨大(${sec}s)</span>`);
+        }
+        if (game.playerBuffs.shield > 0) {
+          pPills.push(`<span class="powerup-pill barrier">🛡️ シールド(${game.playerBuffs.shieldHits})</span>`);
+        }
+        if (game.playerBuffs.freeze > 0) {
+          const sec = Math.ceil(game.playerBuffs.freeze / 60);
+          pPills.push(`<span class="powerup-pill freeze">❄️ 凍結(${sec}s)</span>`);
+        }
+        if (game.puckSpeedBuff > 0) {
+          pPills.push(`<span class="powerup-pill speed">⚡ 加速</span>`);
+        }
+        playerBadge.innerHTML = pPills.length > 0 ? pPills.join(' ') : '-';
+
+        // 相手側
+        const oPills = [];
+        if (game.opponentBuffs.megaMallet > 0) {
+          const sec = Math.ceil(game.opponentBuffs.megaMallet / 60);
+          oPills.push(`<span class="powerup-pill mega">💥 巨大(${sec}s)</span>`);
+        }
+        if (game.opponentBuffs.shield > 0) {
+          oPills.push(`<span class="powerup-pill barrier">🛡️ シールド(${game.opponentBuffs.shieldHits})</span>`);
+        }
+        if (game.opponentBuffs.freeze > 0) {
+          const sec = Math.ceil(game.opponentBuffs.freeze / 60);
+          oPills.push(`<span class="powerup-pill freeze">❄️ 凍結(${sec}s)</span>`);
+        }
+        oppBadge.innerHTML = oPills.length > 0 ? oPills.join(' ') : '-';
+      }
+
+      function drawGoalShields() {
+        // 自陣（手前側）シールド
+        if (game.playerBuffs.shield > 0 && game.playerBuffs.shieldHits > 0) {
+          const barrierY = COURT_HEIGHT - 24;
+          ctx.save();
+          ctx.strokeStyle = '#c084fc';
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur = 18;
+          ctx.lineWidth = 6;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(GOAL_MIN_X - 10, barrierY);
+          ctx.lineTo(GOAL_MAX_X + 10, barrierY);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = '#c084fc';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`🛡️ SHIELD (${game.playerBuffs.shieldHits})`, COURT_WIDTH / 2, barrierY - 8);
+          ctx.restore();
+        }
+
+        // 相手（奥側）シールド
+        if (game.opponentBuffs.shield > 0 && game.opponentBuffs.shieldHits > 0) {
+          const barrierY = 24;
+          ctx.save();
+          ctx.strokeStyle = '#c084fc';
+          ctx.shadowColor = '#c084fc';
+          ctx.shadowBlur = 18;
+          ctx.lineWidth = 6;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(GOAL_MIN_X - 10, barrierY);
+          ctx.lineTo(GOAL_MAX_X + 10, barrierY);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = '#c084fc';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`🛡️ SHIELD (${game.opponentBuffs.shieldHits})`, COURT_WIDTH / 2, barrierY + 16);
+          ctx.restore();
+        }
+      }
+
+      function drawItems() {
+        const now = performance.now();
+        game.items.forEach(item => {
+          const config = ITEM_CONFIGS[item.type] || ITEM_CONFIGS.SPEED;
+          const pulse = Math.sin((now - item.spawnTime) * 0.006) * 3;
+          const rot = (now - item.spawnTime) * 0.002;
+
+          ctx.save();
+          // 外周グローオーラ
+          ctx.shadowColor = config.color;
+          ctx.shadowBlur = 18;
+
+          // 回転リング
+          ctx.strokeStyle = config.color;
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, item.radius + 4 + pulse, rot, rot + Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 本体オーブ
+          const orbGrad = ctx.createRadialGradient(
+            item.x - 3, item.y - 3, 2,
+            item.x, item.y, item.radius + pulse
+          );
+          orbGrad.addColorStop(0, '#ffffff');
+          orbGrad.addColorStop(0.5, config.color);
+          orbGrad.addColorStop(1, '#070a12');
+
+          ctx.fillStyle = orbGrad;
+          ctx.beginPath();
+          ctx.arc(item.x, item.y, item.radius + pulse, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // アイコン絵文字
+          ctx.font = 'bold 15px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(config.icon, item.x, item.y + 1);
+
+          // ラベル
+          ctx.font = 'bold 9px sans-serif';
+          ctx.fillStyle = config.color;
+          ctx.fillText(config.name, item.x, item.y + item.radius + 14);
+
+          ctx.restore();
+        });
       }
 
       function handleGoal(scorer) {
@@ -1503,87 +2032,168 @@
         ctx.lineWidth = 3;
         ctx.strokeRect(GOAL_MIN_X, COURT_HEIGHT - 14, GOAL_WIDTH, 14);
 
-        // 5. パックの軌跡
+        // 4.5 ゴールシールド防壁の描画
+        drawGoalShields();
+
+        // 5. パワーアップアイテムの描画
+        drawItems();
+
+        // 6. パックの軌跡
         game.puckTrail.forEach((trail, idx) => {
           ctx.save();
-          ctx.globalAlpha = (idx / game.puckTrail.length) * 0.3;
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.globalAlpha = (idx / game.puckTrail.length) * (trail.isSuper ? 0.5 : 0.3);
+          ctx.fillStyle = trail.isSuper ? '#fbbf24' : 'rgba(255, 255, 255, 0.6)';
+          if (trail.isSuper) {
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 10;
+          }
           ctx.beginPath();
-          ctx.arc(trail.x, trail.y, PUCK_RADIUS * 0.85, 0, Math.PI * 2);
+          ctx.arc(trail.x, trail.y, PUCK_RADIUS * (trail.isSuper ? 0.95 : 0.85), 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
         });
 
-        // 6. パック (Puck)
+        // 7. パック (Puck)
         ctx.save();
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 12;
+        ctx.shadowColor = game.puckSpeedBuff > 0 ? '#fbbf24' : '#ffffff';
+        ctx.shadowBlur = game.puckSpeedBuff > 0 ? 22 : 12;
 
-        // パック本体グラデーション
         const puckGrad = ctx.createRadialGradient(
           game.puck.x - 4, game.puck.y - 4, 3,
           game.puck.x, game.puck.y, PUCK_RADIUS
         );
-        puckGrad.addColorStop(0, '#ffffff');
-        puckGrad.addColorStop(0.7, '#e2e8f0');
-        puckGrad.addColorStop(1, '#94a3b8');
+        if (game.puckSpeedBuff > 0) {
+          puckGrad.addColorStop(0, '#ffffff');
+          puckGrad.addColorStop(0.5, '#fbbf24');
+          puckGrad.addColorStop(1, '#b45309');
+        } else {
+          puckGrad.addColorStop(0, '#ffffff');
+          puckGrad.addColorStop(0.7, '#e2e8f0');
+          puckGrad.addColorStop(1, '#94a3b8');
+        }
 
         ctx.fillStyle = puckGrad;
         ctx.beginPath();
         ctx.arc(game.puck.x, game.puck.y, PUCK_RADIUS, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = game.puckSpeedBuff > 0 ? 2.8 : 2;
+        ctx.strokeStyle = game.puckSpeedBuff > 0 ? '#fbbf24' : '#38bdf8';
         ctx.stroke();
         ctx.restore();
 
-        // 7. パーティクル
+        // 超加速時の周囲スパーク
+        if (game.puckSpeedBuff > 0 && Math.random() < 0.35) {
+          game.particles.emit(game.puck.x, game.puck.y, '#fbbf24', 2, 2);
+        }
+
+        // 8. パーティクル
         game.particles.updateAndDraw(ctx);
 
-        // 8. 相手のマレット (赤・上部)
-        drawMallet(game.opponentMallet.x, game.opponentMallet.y, '#ff2a5f', '#ff6b8b', 'rgba(255, 42, 95, 0.5)');
+        // 9. マレットの描画 (動的サイズ & バフステータス反映)
+        const playerRadius = MALLET_RADIUS * (game.playerBuffs.megaMallet > 0 ? 1.42 : 1.0);
+        const oppRadius = MALLET_RADIUS * (game.opponentBuffs.megaMallet > 0 ? 1.42 : 1.0);
 
-        // 9. プレイヤーのマレット (シアン・下部)
-        drawMallet(game.playerMallet.x, game.playerMallet.y, '#00f0ff', '#67e8f9', 'rgba(0, 240, 255, 0.5)');
+        // 相手のマレット (赤・上部)
+        drawMallet(
+          game.opponentMallet.x, game.opponentMallet.y,
+          '#ff2a5f', '#ff6b8b', 'rgba(255, 42, 95, 0.5)',
+          oppRadius,
+          game.opponentBuffs.megaMallet > 0,
+          game.opponentBuffs.freeze > 0
+        );
+
+        // プレイヤーのマレット (シアン・下部)
+        drawMallet(
+          game.playerMallet.x, game.playerMallet.y,
+          '#00f0ff', '#67e8f9', 'rgba(0, 240, 255, 0.5)',
+          playerRadius,
+          game.playerBuffs.megaMallet > 0,
+          game.playerBuffs.freeze > 0
+        );
       }
 
-      function drawMallet(x, y, baseColor, lightColor, glowColor) {
+      function drawMallet(x, y, baseColor, lightColor, glowColor, radius = MALLET_RADIUS, isMega = false, isFrozen = false) {
         ctx.save();
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 18;
+        ctx.shadowColor = isFrozen ? '#38bdf8' : (isMega ? '#34d399' : glowColor);
+        ctx.shadowBlur = isMega ? 24 : 18;
+
+        // メガスマッシャー時の外周パルスリング
+        if (isMega) {
+          ctx.strokeStyle = '#34d399';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // 凍結時の氷晶リング
+        if (isFrozen) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         // 外周リング
-        const outerGrad = ctx.createRadialGradient(x - 6, y - 6, 6, x, y, MALLET_RADIUS);
-        outerGrad.addColorStop(0, lightColor);
-        outerGrad.addColorStop(0.7, baseColor);
-        outerGrad.addColorStop(1, '#0f172a');
+        const outerGrad = ctx.createRadialGradient(x - 6, y - 6, 6, x, y, radius);
+        if (isFrozen) {
+          outerGrad.addColorStop(0, '#e0f2fe');
+          outerGrad.addColorStop(0.7, '#38bdf8');
+          outerGrad.addColorStop(1, '#0c4a6e');
+        } else if (isMega) {
+          outerGrad.addColorStop(0, '#a7f3d0');
+          outerGrad.addColorStop(0.7, '#10b981');
+          outerGrad.addColorStop(1, '#064e3b');
+        } else {
+          outerGrad.addColorStop(0, lightColor);
+          outerGrad.addColorStop(0.7, baseColor);
+          outerGrad.addColorStop(1, '#0f172a');
+        }
 
         ctx.fillStyle = outerGrad;
         ctx.beginPath();
-        ctx.arc(x, y, MALLET_RADIUS, 0, Math.PI * 2);
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.lineWidth = 2.5;
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = isFrozen ? '#bae6fd' : '#ffffff';
         ctx.stroke();
 
         // 中心の突起（持ち手・グリップ）
-        const handleGrad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, MALLET_RADIUS * 0.45);
+        const handleGrad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, radius * 0.45);
         handleGrad.addColorStop(0, '#ffffff');
-        handleGrad.addColorStop(0.8, baseColor);
+        handleGrad.addColorStop(0.8, isFrozen ? '#38bdf8' : (isMega ? '#10b981' : baseColor));
         handleGrad.addColorStop(1, '#020617');
 
         ctx.fillStyle = handleGrad;
         ctx.beginPath();
-        ctx.arc(x, y, MALLET_RADIUS * 0.45, 0, Math.PI * 2);
+        ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
         ctx.fill();
+
+        if (isFrozen) {
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#38bdf8';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('❄️', x, y);
+        } else if (isMega) {
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('💥', x, y);
+        }
 
         ctx.restore();
       }
 
       function gameLoop() {
         if (game.active && !game.isPaused) {
+          updateItems();
           updatePhysics();
           syncNetwork();
         }
@@ -1594,23 +2204,55 @@
       requestAnimationFrame(gameLoop);
 
       // ===================================================================
-      // 📡 リアルタイム通信 (Firebase RTDB & 対称正規化座標)
+      // 📡 リアルタイム通信 (Firebase RTDB & WebRTC P2P 二重サポート)
       // ===================================================================
       function syncNetwork() {
         const now = Date.now();
-        // ネットワーク送信は約30fps（33ms間隔）で間引いて通信負荷を軽減
         if (now - game.lastSyncTime < 32) return;
         game.lastSyncTime = now;
 
-        // 180度対称座標の正規化計算:
-        // 自分は常に下半分(y: 0.5 ~ 1.0)を見ている。
-        // Firebaseへ送信する際は、相手の視点(1.0 - x, 1.0 - y)で逆転させて送るか、
-        // 統一した正規化座標 (0.0 ~ 1.0) で同期する。
         const normPlayerX = game.playerMallet.x / COURT_WIDTH;
         const normPlayerY = game.playerMallet.y / COURT_HEIGHT;
 
+        // 1. WebRTC P2P データチャネル送信 (超低遅延)
+        if (activePeerConn && activePeerConn.open) {
+          if (game.role === 'HOST') {
+            activePeerConn.send({
+              type: 'HOST_STATE',
+              x: normPlayerX,
+              y: normPlayerY,
+              puckX: game.puck.x / COURT_WIDTH,
+              puckY: game.puck.y / COURT_HEIGHT,
+              puckVx: game.puck.vx / COURT_WIDTH,
+              puckVy: game.puck.vy / COURT_HEIGHT,
+              scoreHost: game.playerScore,
+              scoreGuest: game.opponentScore,
+              items: game.items.map(it => ({ id: it.id, type: it.type, x: it.x / COURT_WIDTH, y: it.y / COURT_HEIGHT })),
+              buffs: {
+                hostMega: game.playerBuffs.megaMallet,
+                hostShield: game.playerBuffs.shield,
+                hostShieldHits: game.playerBuffs.shieldHits,
+                hostFreeze: game.playerBuffs.freeze,
+                guestMega: game.opponentBuffs.megaMallet,
+                guestShield: game.opponentBuffs.shield,
+                guestShieldHits: game.opponentBuffs.shieldHits,
+                guestFreeze: game.opponentBuffs.freeze,
+                puckSpeed: game.puckSpeedBuff
+              },
+              ts: now
+            });
+          } else if (game.role === 'GUEST') {
+            activePeerConn.send({
+              type: 'GUEST_STATE',
+              x: normPlayerX,
+              y: normPlayerY,
+              ts: now
+            });
+          }
+        }
+
+        // 2. Firebase Realtime Database 同期
         if (game.role === 'HOST' && isFirebaseReady && game.roomRef) {
-          // ホストはパック物理とスコアを更新
           game.roomRef.child('hostState').set({
             x: normPlayerX,
             y: normPlayerY,
@@ -1620,22 +2262,34 @@
             puckVy: game.puck.vy / COURT_HEIGHT,
             scoreHost: game.playerScore,
             scoreGuest: game.opponentScore,
+            items: game.items.map(it => ({ id: it.id, type: it.type, x: it.x / COURT_WIDTH, y: it.y / COURT_HEIGHT })),
+            buffs: {
+              hostMega: game.playerBuffs.megaMallet,
+              hostShield: game.playerBuffs.shield,
+              hostShieldHits: game.playerBuffs.shieldHits,
+              hostFreeze: game.playerBuffs.freeze,
+              guestMega: game.opponentBuffs.megaMallet,
+              guestShield: game.opponentBuffs.shield,
+              guestShieldHits: game.opponentBuffs.shieldHits,
+              guestFreeze: game.opponentBuffs.freeze,
+              puckSpeed: game.puckSpeedBuff
+            },
             timestamp: now
           });
         } else if (game.role === 'GUEST' && isFirebaseReady && game.roomRef) {
-          // ゲストは自マレットの位置のみ送信
           game.roomRef.child('guestState').set({
             x: normPlayerX,
             y: normPlayerY,
             timestamp: now
           });
-        } else if (!isFirebaseReady && (game.role === 'HOST' || game.role === 'GUEST')) {
-          // Firebase未設定時のローカルストレージ・模擬通信（同一ブラウザ2タブ対戦可能）
+        }
+
+        // 3. ローカルシミュレーション (同一ブラウザ別タブ用)
+        if ((!activePeerConn || !activePeerConn.open) && !isFirebaseReady && (game.role === 'HOST' || game.role === 'GUEST')) {
           syncLocalSimulatedNetwork(normPlayerX, normPlayerY, now);
         }
       }
 
-      // 同一ブラウザの別タブでテストできるローカルシミュレーション
       function syncLocalSimulatedNetwork(normX, normY, now) {
         if (!game.roomCode) return;
         const key = 'airhockey_sim_room_' + game.roomCode;
@@ -1652,16 +2306,26 @@
             scoreHost: game.playerScore,
             scoreGuest: game.opponentScore,
             guestJoined: true,
+            items: game.items.map(it => ({ id: it.id, type: it.type, x: it.x / COURT_WIDTH, y: it.y / COURT_HEIGHT })),
+            buffs: {
+              hostMega: game.playerBuffs.megaMallet,
+              hostShield: game.playerBuffs.shield,
+              hostShieldHits: game.playerBuffs.shieldHits,
+              hostFreeze: game.playerBuffs.freeze,
+              guestMega: game.opponentBuffs.megaMallet,
+              guestShield: game.opponentBuffs.shield,
+              guestShieldHits: game.opponentBuffs.shieldHits,
+              guestFreeze: game.opponentBuffs.freeze,
+              puckSpeed: game.puckSpeedBuff
+            },
             ts: now
           };
           localStorage.setItem(key + '_host', JSON.stringify(payload));
 
-          // ゲストの位置をlocalStorageから取得
           const guestRaw = localStorage.getItem(key + '_guest');
           if (guestRaw) {
             try {
               const gData = JSON.parse(guestRaw);
-              // 180度反転
               game.opponentMallet.targetX = (1.0 - gData.x) * COURT_WIDTH;
               game.opponentMallet.targetY = (1.0 - gData.y) * COURT_HEIGHT;
             } catch (e) {}
@@ -1673,16 +2337,57 @@
           if (hostRaw) {
             try {
               const hData = JSON.parse(hostRaw);
-              // 180度反転
-              game.opponentMallet.targetX = (1.0 - hData.host.x) * COURT_WIDTH;
-              game.opponentMallet.targetY = (1.0 - hData.host.y) * COURT_HEIGHT;
-              game.puck.targetX = (1.0 - hData.puck.x) * COURT_WIDTH;
-              game.puck.targetY = (1.0 - hData.puck.y) * COURT_HEIGHT;
-              game.playerScore = hData.scoreGuest;
-              game.opponentScore = hData.scoreHost;
-              updateScoreDisplay();
+              applyHostStateToGuest({
+                x: hData.host.x,
+                y: hData.host.y,
+                puckX: hData.puck.x,
+                puckY: hData.puck.y,
+                scoreHost: hData.scoreHost,
+                scoreGuest: hData.scoreGuest,
+                items: hData.items,
+                buffs: hData.buffs
+              });
             } catch (e) {}
           }
+        }
+      }
+
+      function applyHostStateToGuest(data) {
+        if (!data) return;
+        game.opponentMallet.targetX = (1.0 - data.x) * COURT_WIDTH;
+        game.opponentMallet.targetY = (1.0 - data.y) * COURT_HEIGHT;
+        game.puck.targetX = (1.0 - data.puckX) * COURT_WIDTH;
+        game.puck.targetY = (1.0 - data.puckY) * COURT_HEIGHT;
+        if (data.scoreGuest !== undefined) game.playerScore = data.scoreGuest;
+        if (data.scoreHost !== undefined) game.opponentScore = data.scoreHost;
+        updateScoreDisplay();
+
+        // アイテム同期（上下視点反転）
+        if (data.items) {
+          game.items = data.items.map(it => ({
+            id: it.id,
+            type: it.type,
+            x: (1.0 - it.x) * COURT_WIDTH,
+            y: (1.0 - it.y) * COURT_HEIGHT,
+            radius: ITEM_RADIUS,
+            spawnTime: performance.now()
+          }));
+        }
+
+        // バフ同期（ホスト視点とゲスト視点を反転）
+        if (data.buffs) {
+          game.playerBuffs.megaMallet = data.buffs.guestMega || 0;
+          game.playerBuffs.shield = data.buffs.guestShield || 0;
+          game.playerBuffs.shieldHits = data.buffs.guestShieldHits || 0;
+          game.playerBuffs.freeze = data.buffs.guestFreeze || 0;
+
+          game.opponentBuffs.megaMallet = data.buffs.hostMega || 0;
+          game.opponentBuffs.shield = data.buffs.hostShield || 0;
+          game.opponentBuffs.shieldHits = data.buffs.hostShieldHits || 0;
+          game.opponentBuffs.freeze = data.buffs.hostFreeze || 0;
+
+          game.puckSpeedBuff = data.buffs.puckSpeed || 0;
+          updatePowerupHUD();
         }
       }
 
@@ -1698,48 +2403,81 @@
         game.role = 'HOST';
         game.roomCode = code;
 
-        // UI切り替え
         document.getElementById('displayRoomCode').textContent = code;
         renderQRCode(code);
         document.getElementById('hostModal').style.display = 'flex';
 
+        // 1. WebRTC P2P (PeerJS) ホスト登録
+        if (typeof Peer !== 'undefined') {
+          try {
+            if (peerInstance) peerInstance.destroy();
+            peerInstance = new Peer('airhockey-room-' + code, {
+              debug: 1,
+              config: {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+              }
+            });
+
+            peerInstance.on('connection', (conn) => {
+              activePeerConn = conn;
+              conn.on('open', () => {
+                document.getElementById('connectionStatusText').textContent = '● オンライン接続中 (WebRTC P2P)';
+                if (!game.active) {
+                  showToast("対戦相手が参加しました！試合開始！");
+                  document.getElementById('hostModal').style.display = 'none';
+                  startMatch('GUEST');
+                }
+              });
+
+              conn.on('data', (data) => {
+                if (data && data.type === 'GUEST_STATE') {
+                  game.opponentMallet.targetX = (1.0 - data.x) * COURT_WIDTH;
+                  game.opponentMallet.targetY = (1.0 - data.y) * COURT_HEIGHT;
+                }
+              });
+            });
+          } catch (e) {
+            console.warn("PeerJS host initialization:", e);
+          }
+        }
+
+        // 2. Firebase RTDB ホスト登録
         if (isFirebaseReady) {
           game.roomRef = database.ref('rooms/' + code);
-          // ルーム初期状態セット
           game.roomRef.set({
             status: 'waiting',
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             hostActive: true
           });
 
-          // ゲスト接続の監視
           game.roomRef.child('guestState').on('value', (snap) => {
             const data = snap.val();
             if (data && data.x !== undefined) {
-              // ゲストが接続した！
+              document.getElementById('connectionStatusText').textContent = '● オンライン接続中 (Firebase RTDB)';
               if (!game.active) {
                 showToast("対戦相手が参加しました！試合開始！");
                 document.getElementById('hostModal').style.display = 'none';
                 startMatch('GUEST');
               }
-              // 180度反転してホスト側の奥に配置
               game.opponentMallet.targetX = (1.0 - data.x) * COURT_WIDTH;
               game.opponentMallet.targetY = (1.0 - data.y) * COURT_HEIGHT;
             }
           });
-        } else {
-          // Firebase未構成時のシミュレーション待機
-          showToast("シミュレーション待機中（別タブでこの部屋に参加可能）");
-          const simKey = 'airhockey_sim_room_' + code;
-          const pollInterval = setInterval(() => {
-            if (localStorage.getItem(simKey + '_guest')) {
-              clearInterval(pollInterval);
+        }
+
+        // 3. ローカル待機フォールバック
+        const simKey = 'airhockey_sim_room_' + code;
+        const pollInterval = setInterval(() => {
+          if (localStorage.getItem(simKey + '_guest')) {
+            clearInterval(pollInterval);
+            document.getElementById('connectionStatusText').textContent = '● ローカルシミュレーション接続中';
+            if (!game.active) {
               document.getElementById('hostModal').style.display = 'none';
               showToast("別タブから相手が参加しました！");
               startMatch('GUEST');
             }
-          }, 600);
-        }
+          }
+        }, 600);
       }
 
       function joinGuestRoom(code) {
@@ -1751,55 +2489,90 @@
         game.role = 'GUEST';
         game.roomCode = code;
 
-        if (isFirebaseReady) {
-          game.roomRef = database.ref('rooms/' + code);
-          game.roomRef.once('value').then((snap) => {
-            if (!snap.exists()) {
-              showToast("部屋が見つかりませんでした");
-              return;
-            }
+        let hasConnected = false;
 
-            // 参加通知
-            game.roomRef.child('guestState').set({
-              joined: true,
-              timestamp: Date.now()
-            });
-
-            // ホスト状態の受信
-            game.roomRef.child('hostState').on('value', (snap) => {
-              const hData = snap.val();
-              if (hData) {
-                // 180度反転
-                game.opponentMallet.targetX = (1.0 - hData.x) * COURT_WIDTH;
-                game.opponentMallet.targetY = (1.0 - hData.y) * COURT_HEIGHT;
-
-                game.puck.targetX = (1.0 - hData.puckX) * COURT_WIDTH;
-                game.puck.targetY = (1.0 - hData.puckY) * COURT_HEIGHT;
-
-                game.playerScore = hData.scoreGuest || 0;
-                game.opponentScore = hData.scoreHost || 0;
-                updateScoreDisplay();
+        // 1. WebRTC P2P (PeerJS) でホストへ接続試行
+        if (typeof Peer !== 'undefined') {
+          try {
+            if (peerInstance) peerInstance.destroy();
+            peerInstance = new Peer({
+              debug: 1,
+              config: {
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
               }
             });
 
-            showToast("部屋に参加しました！試合開始！");
-            startMatch('HOST');
-          }).catch((err) => {
-            showToast("接続エラー: " + err.message);
-          });
-        } else {
-          // ローカルシミュレーション参加
-          showToast("シミュレーション部屋に参加しました！");
-          const simKey = 'airhockey_sim_room_' + code;
-          localStorage.setItem(simKey + '_guest', JSON.stringify({ joined: true, x: 0.5, y: 0.85, ts: Date.now() }));
-          startMatch('HOST');
+            peerInstance.on('open', () => {
+              const conn = peerInstance.connect('airhockey-room-' + code, { reliable: false });
+              activePeerConn = conn;
+
+              conn.on('open', () => {
+                hasConnected = true;
+                document.getElementById('connectionStatusText').textContent = '● オンライン接続中 (WebRTC P2P)';
+                showToast("部屋に参加しました！試合開始！");
+                startMatch('HOST');
+              });
+
+              conn.on('data', (data) => {
+                if (data && data.type === 'HOST_STATE') {
+                  applyHostStateToGuest(data);
+                }
+              });
+            });
+          } catch (e) {
+            console.warn("PeerJS guest connect:", e);
+          }
         }
+
+        // 2. Firebase RTDB 接続試行
+        if (isFirebaseReady) {
+          game.roomRef = database.ref('rooms/' + code);
+          game.roomRef.once('value').then((snap) => {
+            if (snap.exists()) {
+              game.roomRef.child('guestState').set({
+                joined: true,
+                timestamp: Date.now()
+              });
+
+              game.roomRef.child('hostState').on('value', (s) => {
+                const hData = s.val();
+                if (hData) {
+                  if (!hasConnected) {
+                    hasConnected = true;
+                    document.getElementById('connectionStatusText').textContent = '● オンライン接続中 (Firebase RTDB)';
+                    showToast("部屋に参加しました！試合開始！");
+                    startMatch('HOST');
+                  }
+                  applyHostStateToGuest(hData);
+                }
+              });
+            }
+          }).catch((err) => {
+            console.warn("Firebase connect check:", err);
+          });
+        }
+
+        // 3. ローカルシミュレーション参加
+        setTimeout(() => {
+          if (!hasConnected) {
+            showToast("部屋に接続しました！");
+            const simKey = 'airhockey_sim_room_' + code;
+            localStorage.setItem(simKey + '_guest', JSON.stringify({ joined: true, x: 0.5, y: 0.85, ts: Date.now() }));
+            document.getElementById('connectionStatusText').textContent = '● ローカルシミュレーション接続中';
+            startMatch('HOST');
+          }
+        }, 1200);
       }
 
       function startSoloAI() {
         game.role = 'SOLO_AI';
         game.roomCode = null;
         game.roomRef = null;
+        if (activePeerConn) {
+          activePeerConn.close();
+          activePeerConn = null;
+        }
+        document.getElementById('connectionStatusText').textContent = '● オフラインAI対戦中';
         startMatch('AI');
       }
 
@@ -1817,6 +2590,15 @@
         game.opponentMallet.y = COURT_HEIGHT * 0.18;
         game.opponentMallet.targetX = COURT_WIDTH / 2;
         game.opponentMallet.targetY = COURT_HEIGHT * 0.18;
+
+        // パワーアップ・アイテムのリセット
+        game.items = [];
+        game.itemSpawnTimer = 240;
+        game.lastHitter = null;
+        game.puckSpeedBuff = 0;
+        game.playerBuffs = { megaMallet: 0, shield: 0, shieldHits: 0, freeze: 0 };
+        game.opponentBuffs = { megaMallet: 0, shield: 0, shieldHits: 0, freeze: 0 };
+        updatePowerupHUD();
 
         resetPuck(1);
 
@@ -1842,8 +2624,22 @@
 
       function leaveGame() {
         game.active = false;
+        game.items = [];
+        game.playerBuffs = { megaMallet: 0, shield: 0, shieldHits: 0, freeze: 0 };
+        game.opponentBuffs = { megaMallet: 0, shield: 0, shieldHits: 0, freeze: 0 };
+        game.puckSpeedBuff = 0;
+        updatePowerupHUD();
+
         if (game.roomRef && isFirebaseReady) {
           game.roomRef.off();
+        }
+        if (activePeerConn) {
+          activePeerConn.close();
+          activePeerConn = null;
+        }
+        if (peerInstance) {
+          peerInstance.destroy();
+          peerInstance = null;
         }
         document.getElementById('gameView').style.display = 'none';
         document.getElementById('lobbyView').style.display = 'flex';
